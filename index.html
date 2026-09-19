@@ -175,6 +175,7 @@
   <div class="btns">
     <button class="btn" id="evbtn" onclick="showNextEvent()" style="display:none">待办事件</button>
     <button class="btn" onclick="openNPC()">诸人数册</button>
+    <button class="btn" onclick="openGuide()">史 册</button>
     <button class="btn danger" onclick="endMonth()">结束本季 ▶</button>
   </div>
 </div>
@@ -214,6 +215,11 @@
   <div class="modal"><h2>诸 人 数 册</h2><div class="desc">死生之巅密档 · 天下人皆是棋盘上的子。</div><div id="npc-body"></div>
   <div class="phew"><button class="opt" onclick="closeModal('ov-npc')">合上册子</button></div></div>
 </div>
+<!-- 史册 · 结局图鉴 -->
+<div class="overlay" id="ov-guide" onclick="if(event.target===this)closeModal('ov-guide')">
+  <div class="modal"><h2>史 册 · 结 局 图 鉴</h2><div class="desc">已录 <b id="guide-n">0</b> / 13 种结局。每一世，都算数。</div><div id="guide-body"></div>
+  <div class="phew"><button class="opt" onclick="closeModal('ov-guide')">合上史册</button></div></div>
+</div>
 <!-- 事件 -->
 <div class="overlay" id="ov-event">
   <div class="modal" id="event-body"></div>
@@ -241,7 +247,7 @@
 <script>
 /* ==================================================================
    《踏仙君模拟器》—— 单文件文字游戏
-   时间线：10年×4季=40回合；每季体力60点
+   时间线：10年×4季=40回合；每季体力20点
    ================================================================== */
 const $=id=>document.getElementById(id);
 const rnd=n=>Math.floor(Math.random()*n);
@@ -249,7 +255,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const fmtW=n=>(Math.round(n*10)/10).toString().replace(/\.0$/,'');
 
 let S=null; // 全局状态
-const SAVE_KEY='taxian_save_v3';
+const SAVE_KEY='taxian_save_v4';
 
 /* ---------------- 静态数据 ---------------- */
 /* 上修界九大仙门 + 轩辕阁拍卖行；天音阁为独立公审势力（随机事件），不列攻打表。
@@ -315,13 +321,13 @@ const RUIN_EXTRAS={
 /* ---------------- 初始化 ---------------- */
 function newState(){
   return {
-    year:1, month:1, sp:60,
+    year:1, month:1, sp:20,
     hp:100, mood:55, coin:60, min:25, troops:26000, capt:0,
     cw:{hp:55, mood:15, alive:true},
     sq:{mood:85, alive:true, tortured:false},
     xm:{alive:true, status:'escaped', band:1500, assass:false, freed:false},
     myst:0, confYear:0, path:0, moodLock:false, cwHurt:false, bandFlag:false,
-    sqSeen:true, sqAnger:0, tyinDone:false,
+    sqSeen:true, sqAnger:0, tyinDone:false, cwLine:0, cwBond:false, mint:false, exam:false,
     sects:SECT_DEFS.map(d=>({...d, def0:d.def, status:'independent', warned:false, rewardUsed:false})),
     ended:false, monthEvents:[]
   };
@@ -337,7 +343,7 @@ function load(){ try{
 /* ---------------- 渲染 ---------------- */
 function render(){
   const dg=(id,bad)=>{const el=$(id); el.classList.toggle('danger',bad); const bar=el.parentElement.querySelector('.bar i'); if(bar)bar.classList.toggle('danger',bad);};
-  $('t-time').textContent=`第${S.year}年 ${sqName(S.month)}季 · 体力${S.sp}/60`;
+  $('t-time').textContent=`第${S.year}年 ${sqName(S.month)}季 · 体力${S.sp}/20`;
   $('t-sp').textContent=S.sp;
   $('t-hp').textContent=Math.round(S.hp); $('b-hp').style.width=S.hp+'%'; dg('t-hp',S.hp<25);
   $('t-mood').textContent=Math.round(S.mood); $('b-mood').style.width=S.mood+'%'; dg('t-mood',S.mood<20);
@@ -408,7 +414,8 @@ function renderPlace(){
       h=`<h2>红 莲 水 榭</h2><div class="desc">楚晚宁 · 健康${Math.round(S.cw.hp)}/100 · 心情${Math.round(S.cw.mood)}/100${S.cw.hp<25?'　<b>（其人已是强弩之末）</b>':''}</div>
       <div class="story" id="cw-story">他跪坐在窗边，白衣洗得发白，脊背仍旧挺直。灵核已废，三把神武俱在身上，却一把也召不出了。</div>
       <div class="acts">
-        ${actBtn('陪伴','6体力','主控健康+6 · 楚晚宁心情+6 · 健康+4','accompany()', S.sp<6, S.sp<6?'体力不足（需6点）':'')}
+        ${actBtn('陪伴','6体力','主控健康+6 · 主控心情+3 · 楚晚宁心情+6 · 楚晚宁健康+4','accompany()', S.sp<6, S.sp<6?'体力不足（需6点）':'')}
+        ${actBtn('手谈一局','2体力','楚晚宁心情+3 · 主控心情+1','chessPlay()', S.sp<2, S.sp<2?'体力不足（需2点）':'')}
         ${actBtn('宠幸','8体力','主控心情+8 · 楚晚宁心情-6 · 健康+3 · 宋皇后心情-10','favor()', S.sp<8, S.sp<8?'体力不足（需8点）':'')}
         ${actBtn('折磨','8体力','主控心情+14 · 楚晚宁心情-14 · 健康-12 · 宋皇后心情+8','torture()', S.sp<8, S.sp<8?'体力不足（需8点）':'')}
       </div>`;
@@ -470,7 +477,7 @@ function fnum(v,unit){
   if(unit==='r')return fmtW(v)+'人';
   return (Math.round(v*10)/10).toString();
 }
-function finishAction(label, skipSp){
+function finishAction(label, skipSp, light){
   if(S.ended||!SNAP){ if(curPlace)renderPlace(); render(); return; }
   const o=SNAP; SNAP=null;
   const rows=[];
@@ -493,9 +500,12 @@ function finishAction(label, skipSp){
       rows.push({n:x.name+'·忠诚', t:`${s0.loy} → ${Math.round(x.loy)}`, d:Math.round((x.loy-s0.loy)*10)/10});
     }
   });
-  const w=warnings();
-  if(!rows.length&&!w.length){ if(curPlace)renderPlace(); render(); maybeShowEvent(); return; }
-  $('fx-body').innerHTML=`<h2>结 算</h2><div class="desc">${label}</div>
+  const w=light?[]:warnings();
+  if(!rows.length&&!w.length){
+    if(!light){ if(curPlace)renderPlace(); render(); maybeShowEvent(); return; }
+    rows.push({n:'——', t:'此番抉择，无数值增减', d:0});
+  }
+  $('fx-body').innerHTML=`<h2>${light?'数 值 变 化':'结 算'}</h2><div class="desc">${label}</div>
     ${rows.map(r=>`<div class="fxrow ${r.sta?'sta-'+r.sta:''}"><span class="dl">${r.n}</span><span class="dv">${r.t}${r.sta?'':(r.d>0?' <span class="up">(+'+fmtW(r.d)+')</span>':(r.d<0?' <span class="dn">('+fmtW(r.d)+')</span>':''))}</span></div>`).join('')}
     ${w.length?`<div class="fxwarn"><b>危 机 预 警</b><br>${w.join('<br>')}</div>`:''}
     <div class="phew"><button class="opt" onclick="closeFx()">确 定</button></div>`;
@@ -506,22 +516,41 @@ function closeFx(){
 }
 function warnings(){
   const w=[];
+  const K=(k,t)=>w.push({k,t});
   const inds=S.sects.filter(x=>x.status==='independent');
   const maxDef=inds.reduce((m,x)=>Math.max(m,x.def),0);
-  if(maxDef>0&&S.troops<maxDef) w.push(`兵力 ${fmtW(S.troops)} 已低于某独立宗门防守 ${fmtW(maxDef)}——攻打必败；若该宗反叛，死生之巅将不保`);
-  if(S.coin<10) w.push(`国库仅 ${fmtW(S.coin)} 万（危险线10万）——若季末告罄：库银清零、兵力折损15%、民心-3`);
-  if(S.min<20) w.push(`民心 ${Math.round(S.min)}（危险线20）——诸宗忠诚将加速下滑，反叛一触即发`);
-  if(S.hp<25) w.push(`你的健康 ${Math.round(S.hp)}（危险线25）——长恨花噬骨，健康归零即"油尽灯枯"`);
-  if(S.mood<15) w.push(S.moodLock?`心情已低至 ${Math.round(S.mood)}——归零之时，你将随他而去（结局"孤鸾饮鸩"）`:`心情 ${Math.round(S.mood)}（危险线15）——长恨花正在吞噬你；若楚晚宁身死且心情归零，即"孤鸾饮鸩"`);
-  if(S.cw.alive&&S.cw.hp<25) w.push(`楚晚宁健康 ${Math.round(S.cw.hp)}（危险线25）——每季-3、岁末-6，归零则水榭灯灭`);
-  if(S.cw.alive&&S.cw.mood<14) w.push(`楚晚宁心情 ${Math.round(S.cw.mood)}（危险线14）——万念俱寂，下次攻打任何宗门，他必以死相抵`);
-  if(S.sq.alive&&S.sq.mood<30) w.push(`宋皇后心情 ${Math.round(S.sq.mood)}（危险线30）——怨愤若持续两季，她将对水榭之人下毒手`);
-  if(S.path>=PATH_NEED*0.9&&S.path<PATH_NEED) w.push(`殉道之路已填 ${fmtW(S.path)}/${fmtW(PATH_NEED)}——只差最后一步`);
-  return w;
+  if(maxDef>0&&S.troops<maxDef) K('troop',`兵力 ${fmtW(S.troops)} 已低于某独立宗门防守 ${fmtW(maxDef)}——攻打必败；若该宗反叛，死生之巅将不保`);
+  if(S.coin<10) K('coin',`国库仅 ${fmtW(S.coin)} 万（危险线10万）——若季末告罄：库银清零、兵力折损15%、民心-3`);
+  if(S.min<20) K('min',`民心 ${Math.round(S.min)}（危险线20）——诸宗忠诚将加速下滑，反叛一触即发`);
+  if(S.hp<25) K('hp',`你的健康 ${Math.round(S.hp)}（危险线25）——长恨花噬骨，健康归零即"油尽灯枯"`);
+  if(S.mood<15) K('mood',S.moodLock?`心情已低至 ${Math.round(S.mood)}——归零之时，你将随他而去（结局"孤鸾饮鸩"）`:`心情 ${Math.round(S.mood)}（危险线15）——长恨花正在吞噬你；若楚晚宁身死且心情归零，即"孤鸾饮鸩"`);
+  if(S.cw.alive&&S.cw.hp<25) K('cwhp',`楚晚宁健康 ${Math.round(S.cw.hp)}（危险线25）——每季-1、寒冬-4，归零则水榭灯灭`);
+  if(S.cw.alive&&S.cw.mood<14) K('cwm',`楚晚宁心情 ${Math.round(S.cw.mood)}（危险线14）——万念俱寂，下次攻打任何宗门，他必以死相抵`);
+  if(S.sq.alive&&S.sq.mood<30) K('sqm',`宋皇后心情 ${Math.round(S.sq.mood)}（危险线30）——怨愤若持续两季，她将对水榭之人下毒手`);
+  if(S.path>=PATH_NEED*0.9&&S.path<PATH_NEED) K('path',`殉道之路已填 ${fmtW(S.path)}/${fmtW(PATH_NEED)}——只差最后一步`);
+  // 去重：同类预警只在首次出现时提示；解除后若复发，再次提示
+  S.warnShown=S.warnShown||{};
+  Object.keys(S.warnShown).forEach(k=>{ if(!w.some(x=>x.k===k)) delete S.warnShown[k]; });
+  return w.filter(x=>{ if(S.warnShown[x.k])return false; S.warnShown[x.k]=true; return true; }).map(x=>x.t);
 }
 
 /* ---------------- 事件调度（队列+搁置+弹窗可关闭） ---------------- */
 function queueEvent(ev){ (S.monthEvents=S.monthEvents||[]).push(ev); }
+const turnNow=()=>(S.year-1)*4+S.month;
+function pushDelayed(ev,turns){ (S.delayedEv=S.delayedEv||[]).push({at:turnNow()+turns, ev}); }
+/* 楚晚宁支线：心情达 50/65/80 依次触发（cwBond 后每季心情流失减半） */
+const CW_LINE=[
+ {title:'雪 夜',text:'大雪落满死生之巅，廊下立着一道白影，不知站了多久。\n"江山都打下去了，"他望着漫天风雪，声音淡得像冰下的话，"怎么，如今连看个雪，都要孤家寡人？"\n你走过去，与他并肩。风雪很冷，谁也没有挪开。',opts:[
+   {t:'解下大氅披在他肩上',f:()=>{S.cw.hp=clamp(S.cw.hp+3,0,100); log('他没有躲。大氅落在瘦削的肩上，像雪地里唯一一点暖色。楚晚宁健康+3。','good'); render(); save();}},
+   {t:'命人温一壶梨花白',f:()=>{S.cw.mood=clamp(S.cw.mood+2,0,100); gainMood(1); log('他抿了一口，眉头都没皱："灌什么迷汤。"可那壶酒，到底见了底。楚晚宁心情+2。','good'); render(); save();}},
+   {t:'什么都不做，只是并肩站着',f:()=>{gainMood(2); log('雪落无声。有些东西不必说破——譬如陪伴，譬如偿还。心情+2。','good'); render(); save();}}]},
+ {title:'旧 事',text:'他忽然问："彩蝶镇之前，你是什么样的人？"\n你张口欲答——记忆里却是一片黑。想不起父母的脸，想不起醉玉楼，想不起雪夜提灯的人。\n长恨花在你心口静静长着，吃掉了来路。\n他看着你空白的眼睛，看了很久，轻轻说："……忘了，也好。"',opts:[
+   {t:'"师父，替我记得。"',f:()=>{S.cw.mood=clamp(S.cw.mood+3,0,100); log('他别过脸去。半晌，说了一个字："好。"楚晚宁心情+3。','good'); render(); save();}},
+   {t:'沉默不语',f:()=>{gainMood(-1); log('殿里只剩更漏声。他没有再问。心情-1。','imp'); render(); save();}}]},
+ {title:'红 莲 开 时',text:'他望着池中红莲，忽然开口："若有一日，你不再需要用别人的血，去填你心里的洞——"\n话没说完，他闭了闭眼："罢了。当我没说。"\n可你听见了。这世上最不可能对你说这句话的人，说了。',opts:[
+   {t:'"若真有那一日呢？"',f:()=>{S.cwBond=true; S.cw.mood=clamp(S.cw.mood+4,0,100); gainMood(3); log('他没有回答，只把一枝开得极盛的红莲，移到了窗内。\n【支线完成：此后楚晚宁心情每季流失减半。】楚晚宁心情+4，心情+3。','good'); render(); save();}},
+   {t:'"没有那一日。"',f:()=>{S.cwBond=true; log('他"嗯"了一声，不再看你。\n可自那以后，他看你的眼神里，少了一些东西，也多了一些东西。\n【支线完成：此后楚晚宁心情每季流失减半。】','imp'); render(); save();}}]},
+];
 function maybeShowEvent(){
   if(S.ended)return;
   if($('ov-event').classList.contains('show'))return;
@@ -551,7 +580,7 @@ function pickOpt(i){
   takeSnap(ev.title+' · '+opt.t);
   opt.f();
   if(S.ended)return;
-  save(); finishAction(ev.title);
+  save(); finishAction(ev.title, false, true);
 }
 
 /* ---------------- 巫山殿 ---------------- */
@@ -559,7 +588,7 @@ function prisonBlock(){
   if(!S.xm.alive||S.xm.status!=='jailed')return '';
   return `<div class="sect" style="margin-top:12px">
     <div class="shead"><b>天 牢 · 薛 蒙</b><span class="tag">被囚</span></div>
-    <div class="sdata">旧部 ${fmtW(S.xm.band)} 人 · 囚禁期间：旧部不再扩张、游说之声渐弱，但楚晚宁每季心情-6</div>
+    <div class="sdata">旧部 ${fmtW(S.xm.band)} 人 · 囚禁期间：旧部不再扩张、游说之声渐弱，但楚晚宁每季心情-3</div>
     <div class="sacts">
       <button class="sbtn" ${S.sp<5?'disabled':''} onclick="prisonAsk()">审问（5体力 · 撬出据点，旧部-300）</button>
       <button class="sbtn" ${S.sp<8?'disabled':''} onclick="prisonTorture()">折磨（8体力 · 主控心情+4 · 楚晚宁心情-6 · 旧部激愤+200）</button>
@@ -610,7 +639,7 @@ function drinkAlone(){
 function giveDeathBtn(){
   if(!S.sq.alive)return '';
   const ok=!S.cw.alive||S.sq.tortured||S.mood<35;
-  return actBtn('赐 死','0体力', ok?'阶下哭喊的人，忽然吵得厉害。':'（你暂时没有这个念头）','giveDeathSong()', !ok);
+  return actBtn('赐死宋秋桐','0体力', ok?'偏殿里那个女人的哭声，忽然吵得厉害。':'（你暂时没有这个念头）','giveDeathSong()', !ok);
 }
 function giveDeathSong(){
   if(!S.sq.alive)return;
@@ -668,9 +697,20 @@ function prisonFree(){
 }
 
 /* ---------------- 红莲水榭 ---------------- */
+const CHESS_LINES=[
+ '你命人摆开棋枰。他执黑，落子极快，杀得你片甲不留。"就这棋艺，也配治国。"他淡淡道。你输得很高兴。',
+ '一局未终，他忽然把棋子拢了。"哄小孩的东西。"可次日你再至，棋枰已摆回原处，黑子一侧缺着一枚——他留着，等你下次来输。',
+ '他让你三子，你还是输了。他冷笑一声，却把败因一处一处讲给你听，讲得极细。窗外红莲开了一池，谁也没提"软禁"两个字。',
+];
+function chessPlay(){
+  if(!S.cw.alive||S.sp<2)return; S.sp-=2;
+  S.cw.mood=clamp(S.cw.mood+3,0,100); gainMood(1);
+  log(CHESS_LINES[rnd(CHESS_LINES.length)],'good');
+  save(); finishAction('红莲水榭 · 手谈一局');
+}
 function accompany(){
   if(S.sp<6)return; S.sp-=6;
-  S.hp=clamp(S.hp+6,0,100); S.cw.mood=clamp(S.cw.mood+6,0,100); S.cw.hp=clamp(S.cw.hp+4,0,100);
+  S.hp=clamp(S.hp+6,0,100); S.cw.mood=clamp(S.cw.mood+6,0,100); S.cw.hp=clamp(S.cw.hp+4,0,100); gainMood(3);
   log(COMPANIES[rnd(COMPANIES.length)],'good');
   save(); finishAction('红莲水榭 · 陪伴');
 }
@@ -805,7 +845,7 @@ function doSurrender(s){
   S.troops+=troops; S.coin+=s.stone;
   if(s.key!=='jiangdong'){ S.min=clamp(S.min+6,0,100); }
   S.cw.mood=clamp(S.cw.mood+5,0,100);
-  log(`<b>${s.name}举宗归降！</b>${s.rep}率众跪迎圣驾，${fmtW(troops)}弟子编入麾下，灵石${fmtW(s.stone)}万充入国库，此后每季岁贡6万、进贡生灵。${s.key==='jiangdong'?'——可这等杀夫夺位的门派归附，市井反有微词，民心未涨。':''}`,'good');
+  log(`<b>${s.name}举宗归降！</b>${s.rep}率众跪迎圣驾，${fmtW(troops)}弟子编入麾下，灵石${fmtW(s.stone)}万充入国库，此后每季上贡灵石、岁使不绝。${s.key==='jiangdong'?'——可这等杀夫夺位的门派归附，市井反有微词，民心未涨。':''}`,'good');
   if(s.key==='wubei'){ S.min=clamp(S.min+8,0,100); S.cw.mood=clamp(S.cw.mood+8,0,100); }
   if(s.key==='guyue'){ log('孤月夜药宗弟子供奉丹药入宫，此后每季为红莲水榭调养旧疾。','good'); }
   S.sects.filter(x=>x.status==='independent').forEach(x=>x.loy=clamp(x.loy+2,0,100));
@@ -842,36 +882,44 @@ function endMonth(){
 }
 function processMonth(){
   const evq=[];
-  // 1 国库收支（按季三倍）
+  // 0 到期的延迟后续事件（两段式随机事件）
+  (S.delayedEv||[]).forEach(d=>{ if(d.at<=turnNow()) evq.push(d.ev); });
+  S.delayedEv=(S.delayedEv||[]).filter(d=>d.at>turnNow());
+  // 1 国库收支
   const vassals=S.sects.filter(x=>x.status==='vassal').length;
-  const inc=(8+2*vassals+Math.ceil(S.capt/15000))*3;
-  const exp=(Math.ceil(S.troops/10000)+Math.ceil(S.capt/20000))*3;
+  const inc=8+(S.mint?2:0)+2*vassals+Math.ceil(S.capt/15000);
+  const exp=Math.ceil(S.troops/10000)+Math.ceil(S.capt/20000);
   S.coin+=inc-exp;
   if(S.coin<0){
     S.coin=0; S.troops=Math.floor(S.troops*0.85); S.min=clamp(S.min-3,0,100);
     log('国库告罄！军饷不济，逃兵日增，军心浮动。','imp');
   }
   // 2 主控被动（兵戈之年，人心易散，民心每季自然流失）
-  S.hp=clamp(S.hp-1.5,0,100);
-  S.min=clamp(S.min-3,0,100);
-  S.mood=clamp(S.mood-(S.moodLock?7.5:3), S.moodLock?0:5,100);
+  S.hp=clamp(S.hp-0.5,0,100);
+  S.min=clamp(S.min-(S.exam?0.75:1),0,100);
+  S.mood=clamp(S.mood-(S.moodLock?2.5:1), S.moodLock?0:5,100);
   if(!S.moodLock&&S.mood<15&&Math.random()<0.25){
     S.min=clamp(S.min-2,0,100);
     log('长恨花噬心。你近来看谁都不顺眼，殿前失手责毙了两个内侍。市井窃语：帝君暴戾。民心-2。','imp');
   }
   // 3 楚晚宁被动（不归戾气与灵核相克，健康逐年流失）
   if(S.cw.alive){
-    S.cw.hp=clamp(S.cw.hp-3,0,100);
-    if(S.sects.find(x=>x.key==='guyue'&&x.status==='vassal')) S.cw.hp=clamp(S.cw.hp+6,0,100);
-    S.cw.mood=clamp(S.cw.mood-3,0,100);
-    if(S.month===4){ S.cw.hp=clamp(S.cw.hp-6,0,100); log('寒疾岁发。红莲水榭咳声彻夜，他缠绵病榻，旧伤又添新霜。','imp'); }
+    S.cw.hp=clamp(S.cw.hp-1,0,100);
+    if(S.sects.find(x=>x.key==='guyue'&&x.status==='vassal')) S.cw.hp=clamp(S.cw.hp+2,0,100);
+    S.cw.mood=clamp(S.cw.mood-(S.cwBond?0.5:1),0,100);
+    if(S.month===4){ S.cw.hp=clamp(S.cw.hp-4,0,100); log('寒疾岁发。红莲水榭咳声彻夜，他缠绵病榻，旧伤又添新霜。','imp'); }
     if(S.cw.hp<25&&S.cw.hp>0) log(`楚晚宁健康仅剩${Math.round(S.cw.hp)}，已近油尽灯枯。`,'imp');
     if(S.cw.hp<=0){ chuDeath(); }
+  }
+  // 3.5 楚晚宁支线（心情累计达到门槛，依次触发；每段一次性）
+  if(S.cw.alive&&S.cwLine<3&&S.cw.mood>=[50,65,80][S.cwLine]&&!S.cwHurt){
+    S.cwLine++;
+    evq.push(CW_LINE[S.cwLine-1]);
   }
   // 4 宋秋桐（久未承宠则冷落生怨；怨愤持续两季，方才动手）
   if(S.sq.alive){
     if(!S.sqSeen){
-      S.sq.mood=clamp(S.sq.mood-6,0,100);
+      S.sq.mood=clamp(S.sq.mood-3,0,100);
       if(S.sq.mood<30) log('皇后久未承宠，偏殿的茶盏又碎了一套。冷落生怨。','imp');
     }
     if(S.sq.mood<30){ S.sqAnger=(S.sqAnger||0)+1; }
@@ -891,10 +939,10 @@ function processMonth(){
   // 5 薛蒙（在逃则旧部扩张；被囚则旧部停摆、楚晚宁痛心；放归后各安天命）
   if(S.xm.alive){
     if(S.xm.status==='jailed'){
-      S.cw.mood=clamp(S.cw.mood-6,0,100);
+      S.cw.mood=clamp(S.cw.mood-3,0,100);
       if(S.month===1) log('天牢深处传来绝食的动静。水榭里的人听着，一夜白头似的。','imp');
     }else if(!S.xm.freed){
-      S.xm.band=Math.min(6000,S.xm.band+450);
+      S.xm.band=Math.min(6000,S.xm.band+150);
       if(S.year>=3&&!S.xm.assass&&Math.random()<0.35){
         S.xm.assass=true;
         evq.push({title:'雪 夜 刺 客',text:'深夜，两道黑影破入巫山殿——刀光如雪，招招搏命。是薛蒙，和踏雪宫的梅含雪。\n"狗东西！"那凤凰一样的少年眼睛赤红，刀锋停在你咽喉前三寸——他的手在抖。他到底，没下得了死手。',
@@ -938,15 +986,15 @@ function processMonth(){
     evq.push({title:'面 具 客 卿',text:texts.t,opts:texts.o});
   }
   // 7 宗门季度漂移
-  const xmLoy=!S.xm.alive?0:(S.xm.status==='jailed'?0.75:1.5);
+  const xmLoy=!S.xm.alive?0:(S.xm.status==='jailed'?0.25:0.5);
   S.sects.forEach(s=>{
     if(s.status==='ruined')return;
     s.rewardUsed=false;
     if(s.status==='independent'){
       if(s.locked&&S.year<8)return; // 薛蒙在踏雪宫，梅氏兄弟庇护；第八年密探方报得布防
-      s.def=Math.min((s.def0||s.def)*2.5, s.def*1.031);
-      s.pop=s.pop*1.006; s.stone=s.stone*1.061;
-      let d=-1.5+(S.min>=70?1.5:0)-(S.min<20?3:0)-xmLoy+(s.key==='rufeng'?-0.9:0);
+      s.def=Math.min((s.def0||s.def)*2.2, s.def*1.010);
+      s.pop=s.pop*1.002; s.stone=s.stone*1.02;
+      let d=-0.5+(S.min>=70?0.5:0)-(S.min<20?1:0)-xmLoy+(s.key==='rufeng'?-0.5:0);
       s.loy=clamp(s.loy+d,0,100);
       if(s.loy<=35&&!s.warned){ s.warned=true; evq.push({title:'风 声',text:`密报：${s.name}暗流涌动，${s.rep}近日闭门谢客，恐生叛心。`,opts:[{t:'知道了',f:()=>{}}]}); }
       if(s.loy<=20){ doRebel(s); if(S.ended)return; }
@@ -955,7 +1003,7 @@ function processMonth(){
   });
   // 7.5 归降宗门进贡（岁贡6万之外，另有生灵入贡，可填殉道之路）
   S.sects.filter(x=>x.status==='vassal').forEach(s=>{
-    if(Math.random()<0.25){
+    if(Math.random()<0.15){
       const tribute=Math.round(s.stone*0.3), capN=1000+rnd(2000);
       S.coin+=tribute; S.capt+=capN;
       log(`${s.name}遣使上书进贡：灵石${fmtW(tribute)}万、生灵${fmtW(capN)}口，以充天听。`,'gold');
@@ -966,26 +1014,26 @@ function processMonth(){
   });
   // 7.8 俘虏逃亡
   if(S.capt>=1000){
-    const flee=Math.floor(S.capt*0.015);
+    const flee=Math.floor(S.capt*0.005);
     if(flee>0){ S.capt-=flee;
       log(`守营来报：本季有 ${fmtW(flee)} 俘虏越狱逃亡。`,'imp'); }
   }
   // 8 随机事件
-  if(Math.random()<0.85){ const e=randomEvent(); if(e)evq.push(e); }
+  if(Math.random()<0.35){ const e=randomEvent(); if(e)evq.push(e); }
   // 9 死亡与终局判定
   if(S.hp<=0){ ending('lamp'); return; }
   if(S.mood<=0&&S.moodLock){ ending('poison'); return; }
   if(S.troops<=0){ ending('mutiny'); return; }
   // 10 季度推进（健康<25则病躯缠身，体力大减；心情≥80则神清气爽，体力+3）
   S.month++;
-  S.sp=(S.hp<25?50:(S.mood>=80?63:60));
+  S.sp=(S.hp<25?15:(S.mood>=80?23:20));
   S.cwHurt=false; S.sqSeen=false;
   if(S.month>4){ S.month=1; S.year++; }
   S.monthEvents=(S.monthEvents||[]).concat(evq);
   save(); render();
-  if(S.year>10){ ending('finale'); return; }
+  if(S.year>10){ ending(S.cw.alive?(S.min>=70?'finale_bene':'finale_stale'):'finale_guard'); return; }
   log(`—— 第${S.year}年 ${sqName(S.month)}季 ——`,'gold');
-  if(S.hp<25)log('你缠绵病榻，本季可用体力减至50。','imp');
+  if(S.hp<25)log('你缠绵病榻，本季可用体力减至15。','imp');
   else if(S.mood>=80)log('近日神清气爽，本季体力+3。','good');
   finishAction(`第${S.year}年${sqName(S.month)}季 · 季度结算`, true);
 }
@@ -1036,6 +1084,28 @@ function randomEvent(){
   if(ind.length)pool.push({w:3,e:{title:'诸 宗 求 贡',text:`${ind[0].name}遣使上表，请求减半岁贡，以灾年民困为由。`,opts:[
     {t:'准奏',f:()=>{ind[0].loy=clamp(ind[0].loy+4,0,100); log(`${ind[0].name}感念天恩。忠诚+4。`,'good'); checkSect(ind[0]); render(); save();}},
     {t:'驳回',f:()=>{ind[0].loy=clamp(ind[0].loy-3,0,100); log(`${ind[0].name}使者悻悻而归。忠诚-3。`,'imp'); render(); save();}}]}});
+  if(!S.famineDone)pool.push({w:2,e:{title:'北 境 大 旱',text:'北境三州大旱，赤地千里，流民南涌。户部请旨：开仓，还是加征？',opts:[
+    {t:'开仓赈灾（-8万灵石 · 民心+4）',f:()=>{S.famineDone=true; if(S.coin>=8)S.coin-=8; S.min=clamp(S.min+4,0,100);
+      pushDelayed({title:'万 民 衣',text:'北境流民在巫山殿前献上一件万民衣，一针一线，皆是穷人的手艺。\n"陛下给了活路。"为首的老人老泪纵横。',opts:[{t:'受之',f:()=>{S.min=clamp(S.min+2,0,100);S.sects.forEach(x=>{if(x.status==='independent')x.loy=clamp(x.loy+1,0,100);}); log('民心+2，诸宗忠诚+1。仁君之名，传遍修真界。','good'); render(); save();}}]},2);
+      log('粮仓开了，粥棚立起。民心+4。流民里有读书人记下了这一天。','good'); render(); save();}},
+    {t:'加征赋税（国库+12万 · 民心-5）',f:()=>{S.famineDone=true; S.coin+=12; S.min=clamp(S.min-5,0,100);
+      pushDelayed({title:'流 民 聚 啸',text:'加征的官吏逼反了流民。数千人啸聚山林，劫粮车，焚官驿。',opts:[
+        {t:'发兵镇压（兵力-1500 · 民心-2）',f:()=>{S.troops=Math.max(0,S.troops-1500);S.min=clamp(S.min-2,0,100); log('叛众散了。可"踏仙君杀流民"的话，越传越难听。','imp'); render(); save();}},
+        {t:'招抚编入工役（-6万灵石 · 民心+1）',f:()=>{S.coin=Math.max(0,S.coin-6);S.min=clamp(S.min+1,0,100); log('流民编入驿道工役，有饭吃了。骂声渐息。','good'); render(); save();}}]},2);
+      log('国库满了，人心空了。民心-5。','imp'); render(); save();}}]}});
+  if(!S.levee)pool.push({w:2,e:{title:'汛 情 急 报',text:'夏汛将至，南境河堤年久失修。工部跪请圣裁。',opts:[
+    {t:'征夫修堤（-7万灵石）',f:()=>{S.levee=true; if(S.coin>=7)S.coin-=7;
+      pushDelayed({title:'河 清',text:'汛水过境，新堤巍然。两岸百姓在堤上立了生祠，香火不断。',opts:[{t:'——',f:()=>{S.min=clamp(S.min+2,0,100); log('民心+2。水安，则民安。','good'); render(); save();}}]},2);
+      log('河堤筑起。今岁汛期，可保无虞。','good'); render(); save();}},
+    {t:'暂缓（省下7万灵石）',f:()=>{S.levee=true;
+      pushDelayed({title:'决 堤',text:'汛水冲垮了河堤，三县被淹，浮尸顺流而下。',opts:[{t:'赈恤（-5万灵石 · 民心-4）',f:()=>{S.coin=Math.max(0,S.coin-5);S.min=clamp(S.min-4,0,100); log('你能做的，只剩收拾残局。民心-4。','imp'); render(); save();}}]},2);
+      log('你批了"暂缓"二字。河堤的事，今年就这样了。','imp'); render(); save();}}]}});
+  if(!S.mint)pool.push({w:1,e:{title:'铸 币 平 准',text:'度支奏请开炉铸新币，平抑灵石米价。',opts:[
+    {t:'准奏（-5万灵石 · 此后每季国库+2万）',f:()=>{S.mint=true; if(S.coin>=5)S.coin-=5; log('新币通行，市面渐稳。户部尚书喜极而拜。','good'); render(); save();}},
+    {t:'旧币将就',f:()=>{log('旧币继续流通，市面不温不火。'); render(); save();}}]}});
+  if(!S.exam)pool.push({w:1,e:{title:'开 科 取 士',text:'礼部奏请开科取士，广纳寒门修士入仕。',opts:[
+    {t:'准奏（-6万灵石 · 民心+3 · 民心流失减缓）',f:()=>{S.exam=true; if(S.coin>=6)S.coin-=6; S.min=clamp(S.min+3,0,100); log('寒门修士鱼贯入殿试。民心+3；自此朝堂有人做事，民心流失减缓。','good'); render(); save();}},
+    {t:'沿袭门阀旧制',f:()=>{S.min=clamp(S.min-2,0,100); log('寒门学子在山门外跪了三天，散了。民心-2。','imp'); render(); save();}}]}});
   // 加权抽取
   const total=pool.reduce((a,p)=>a+p.w,0); let r=Math.random()*total;
   for(const p of pool){ r-=p.w; if(r<=0)return p.e; }
@@ -1043,15 +1113,45 @@ function randomEvent(){
 }
 
 /* ---------------- 结局与一统 ---------------- */
+const ENDING_BOOK=[
+ ['unify_good','海晏河清 · 生'],['unify_good_dead','海晏河清 · 殁'],
+ ['unify_iron','铁血一统'],['unify_empty','万里空座'],
+ ['finale_bene','十年未竟 · 仁主'],['finale_stale','十年未竟 · 相持'],['finale_guard','十年未竟 · 守棺'],
+ ['poison','孤鸾饮鸩'],['path','殉道之路'],['lamp','油尽灯枯'],
+ ['mutiny','众叛亲离'],['rebel','叛火焚天'],['deadwar','兵败 · 不归'],
+];
+function recordEnding(k){
+  try{ const b=JSON.parse(localStorage.getItem('taxian_endings_v1')||'[]');
+    if(!b.includes(k)){ b.push(k); localStorage.setItem('taxian_endings_v1',JSON.stringify(b)); } }catch(e){}
+}
+function historyRecord(){
+  const v=S.sects.filter(x=>x.status==='vassal').length, r=S.sects.filter(x=>x.status==='ruined').length;
+  const seg=[`帝在位${S.year}年${sqName(S.month)}。`];
+  if(r)seg.push(`兵锋过处，${r}宗覆灭；`);
+  if(v)seg.push(`怀柔羁縻，${v}宗归降；`);
+  if(S.path>0)seg.push(`殉道之路填生灵${fmtW(S.path)}口；`);
+  seg.push(S.cw.alive?'水榭之人尚在。':'水榭灯灭。');
+  if(!S.sq.alive)seg.push('皇后先卒。');
+  if(S.xm.freed)seg.push('曾纵少主归山。');
+  return '【史官曰】'+seg.join('');
+}
+function openGuide(){
+  let done=[]; try{done=JSON.parse(localStorage.getItem('taxian_endings_v1')||'[]');}catch(e){}
+  $('guide-n').textContent=done.length;
+  $('guide-body').innerHTML=ENDING_BOOK.map(p=>{const ok=done.includes(p[0]);
+    return `<div class="fxrow ${ok?'sta-good':''}"><span class="dl">${ok?p[1]:'？？？'}</span><span class="dv">${ok?'已录入史册':'尚未亲历'}</span></div>`;}).join('');
+  openModal('ov-guide');
+}
 function checkUnify(){
   if(S.sects.every(x=>x.status!=='independent')){
     if(S.cw.alive&&S.min>=70) ending('unify_good');
     else if(S.cw.alive) ending('unify_iron');
+    else if(S.min>=70) ending('unify_good_dead');
     else ending('unify_empty');
   }
 }
 function ending(type, arg){
-  if(S.ended)return; S.ended=true; save();
+  if(S.ended)return; S.ended=true; recordEnding(type); save();
   const E={};
   E.deadwar={t:'兵 败 · 不 归',x:()=>`${arg?arg.name:''}的结界比密报里更硬。\n不归陌刀断成两截的时候，你才想起来，禁术珍珑棋局的棋子，终究不是真正的修士。\n叛军潮水般漫过巫山殿。踏仙君战死，天下易主。\n没有人知道，你死前望着的是红莲水榭的方向。`};
   E.rebel={t:'叛 火 焚 天',x:()=>`${arg?arg.name:''}的反旗引燃了天下积怨。诸宗联军攻破死生之巅，你的兵力在叛军面前不值一提。\n巫山殿前的火烧了三天三夜。\n一代暴君，众叛亲离，死于乱军之中。`};
@@ -1059,18 +1159,18 @@ function ending(type, arg){
   E.mutiny={t:'众 叛 亲 离',x:()=>`最后一枚棋子也散了。亲军哗变的那夜，没有人为你关门。\n你握着不归的断刃，站在空无一人的大殿上，忽然觉得——这样也好。`};
   E.poison={t:'孤 鸾 饮 鸩',x:()=>`红莲水榭里，他的尸身被你温养着，眉眼如生。\n你日日渡灵力，说着没人听的话。\n直到某一天，你发现自己再也凝不出一丝灵力——长恨花把你的心吃空了。\n你换上初见那年的白衣，在他棺边坐下，饮尽了鸩酒。\n\n"师尊，等等我。"\n\n两年后，你的躯壳被一个摘下面具的"死人"取走，制成傀儡——为蝶骨一族，铺设起回家的路。`};
   E.path={t:'殉 道 之 路',x:()=>`最后一万生灵踏上石道的那个夜里，整座后山亮起了幽蓝的魔纹。\n面具客卿立于道端，缓缓摘下了青铜面具——\n\n是师昧。是华碧楠。是那个你在彩蝶镇眼睁睁看着"死"去的人。\n\n"陛下，"他笑着落泪，金色的泪滴坠地成花，"谢谢你。替我族，铺好了回家的路。"\n\n魔界之门轰然洞开。你立在道前，忽然什么都想起来了——八苦长恨花、彩蝶镇、以及那个替你挡下种花之人的雨夜。\n\n他想带族人回家是真的。他不在乎人间要为此付出什么，也是真的。\n\n魔气如决堤的黑潮自门内涌出，仙门大阵像烛火一样一盏一盏熄灭。死生之巅、九大仙门、千里城郭、万家灯火——不出三年，尽数化为焦土。钟声、诵经声、市集叫卖声，都停了。\n\n尘世寂灭，天地之间只剩那条以生灵铺就的石道，通往另一界。他牵着你的手站在人间最后一片废墟上，看着魔界的天光漫过残阳："陛下看，这条路，终于走通了。"\n\n你的躯壳从此听命于他，如提线木偶，行走于一片死尽的故土。\n棋子一生，终成傀儡。而整个尘世，为这条回家的路殉了道。`};
-  E.unify_good={t:'海 晏 河 清',x:()=>`诸宗尽服，四海归一。\n你放下不归，学着批奏章、减赋税、开粥棚。修真界说书人换了新词：明君踏仙。\n红莲水榭的门，早就不再上闩。他还愿意陪你下棋、喝梨花白——虽然还是总骂你混账。\n又是一年西府海棠开。你折了一枝，忽然想：若长恨花从未入骨，你与他，是不是本该如此。\n\n——一世荒唐，终有微光。此为至暗处，唯一的善终。`};
+  E.unify_good={t:'海 晏 河 清 · 生',x:()=>`诸宗尽服，四海归一。\n你放下不归，学着批奏章、减赋税、开粥棚。修真界说书人换了新词：明君踏仙。\n红莲水榭的门，早就不再上闩。他还愿意陪你下棋、喝梨花白——虽然还是总骂你混账。\n又是一年西府海棠开。你折了一枝，忽然想：若长恨花从未入骨，你与他，是不是本该如此。\n\n——一世荒唐，终有微光。此为至暗处，唯一的善终。`};
   E.unify_iron={t:'铁 血 一 统',x:()=>`天下归一。只是这一统，是踩着白骨垒起来的。\n你还坐在巫山殿最高的地方，俯瞰你的江山。他还活着，在水榭里，隔着一池红莲不看你。\n你得到了整个修真界，却始终没能得到一个回头。`};
   E.unify_empty={t:'万 里 空 座',x:()=>`你赢下了整个天下。\n龙椅之上俯瞰万里山河——每一寸，都埋着他没能看到的人。\n红莲水榭的灯还亮着。你夜夜去坐一会儿，跟他说今天的政务、新炼的棋子、以及天下终于太平了。\n他从不回答。你知道，永远不会了。`};
-  E.finale={t:'十 年 未 竟',x:()=>()=>{
+  E.unify_good_dead={t:'海 晏 河 清 · 殁',x:()=>`诸宗尽服，四海归一。赋税轻简，粥棚连绵，说书人换了新词：明君踏仙。\n只是没人知道，巫山殿最高的地方，龙椅常常空着。\n红莲水榭的灯夜夜亮着。你把批好的奏章搬到水榭，念给不会应声的人听。\n天下太平了。可这太平里，没有一声是给他的。\n\n——海晏河清，斯人不存。此为至治之世，至孤之人。`};
+  E.finale_bene={t:'十 年 未 竟 · 仁 主',x:()=>{
     const ind=S.sects.filter(x=>x.status==='independent').length;
-    if(S.cw.alive&&S.min>=70)return `十年之期已至。诸宗犹存${ind}家，但你治下赋税轻简、流民有粥、佛寺颂佛。\n你没做成一统的帝王，倒像个守成的仁主。水榭的门早就不上闩了，他偶尔会来巫山殿，提醒你批完那摞奏章。\n"混账，章都不批，像什么话。"\n——你说，这算不算另一种赢？`;
-    if(S.cw.alive)return `十年之期已至。天下未平，暴名未洗。\n你与他的十年，就在软禁与红莲之间，一天天耗了过去。\n谁也没有低头。谁也没有离开。`;
-    return `十年之期已至。天下未平，斯人已逝。\n你守着红莲水榭的棺椁与半壁江山，一日日数着长恨花生长的声音。\n故事停在这里，尚未饮鸩——可所有人都知道结局。`;}
-  };
+    return `十年之期已至。诸宗犹存${ind}家，但你治下赋税轻简、流民有粥、佛寺颂佛。\n你没做成一统的帝王，倒像个守成的仁主。水榭的门早就不上闩了，他偶尔会来巫山殿，提醒你批完那摞奏章。\n"混账，章都不批，像什么话。"\n——你说，这算不算另一种赢？`;}};
+  E.finale_stale={t:'十 年 未 竟 · 相 持',x:()=>`十年之期已至。天下未平，暴名未洗。\n你与他的十年，就在软禁与红莲之间，一天天耗了过去。\n谁也没有低头。谁也没有离开。`};
+  E.finale_guard={t:'十 年 未 竟 · 守 棺',x:()=>`十年之期已至。天下未平，斯人已逝。\n你守着红莲水榭的棺椁与半壁江山，一日日数着长恨花生长的声音。\n故事停在这里，尚未饮鸩——可所有人都知道结局。`};
   const e=E[type]; if(!e)return;
   $('end-title').textContent=e.t;
-  const x=e.x(); $('end-txt').textContent=typeof x==='function'?x():x;
+  const x=e.x(); $('end-txt').textContent=(typeof x==='function'?x():x)+'\n\n'+historyRecord();
   $('end-stats').innerHTML=`<b>终局结算</b> — 第${S.year}年${sqName(S.month)}季 ｜ 健康${Math.round(S.hp)} ｜ 心情${Math.round(S.mood)} ｜ 国库${fmtW(S.coin)}万 ｜ 民心${Math.round(S.min)} ｜ 兵力${fmtW(S.troops)} ｜ 俘虏${fmtW(S.capt)}<br>楚晚宁：${S.cw.alive?'尚在人世':'已故'} ｜ 宋秋桐：${S.sq.alive?'在世':'已故'} ｜ 薛蒙：${S.xm.alive?(S.xm.status==='jailed'?'被囚':'在逃'):'已故'} ｜ 殉道之路：${fmtW(S.path)}/${fmtW(PATH_NEED)} ｜ 归降${S.sects.filter(x=>x.status==='vassal').length}宗 · 覆灭${S.sects.filter(x=>x.status==='ruined').length}宗`;
   openModal('ov-end');
 }
