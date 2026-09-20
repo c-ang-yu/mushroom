@@ -650,7 +650,7 @@ function mealBlock(){
   h+=actBtn('清粥小菜','不耗时','健康+3','eat(\'zhou\')',left<=0,d);
   h+=actBtn('一盏馄饨','不耗时','心情+2 · 健康+1','eat(\'hun\')',left<=0,d);
   h+=actBtn('人参羹','不耗时','健康+4 · 心情-1（药膳苦口）','eat(\'ren\')',left<=0,d);
-  h+=actBtn('？？？','不耗时','？？？','eat(\'choco\')',false,'');
+  h+=actBtn('巧克力','不耗时','？？？','eat(\'choco\')',false,'');
   return h+'</div>';
 }
 function eat(k){
@@ -663,7 +663,7 @@ function eat(k){
   else if(k==='hun'){gainMood(2);S.hp=clamp(S.hp+1,0,100);S.mealUsed++;msg='皮薄馅大，汤头滚烫。人间烟火，无非一碗馄饨。心情+2，健康+1。';}
   else if(k==='ren'){S.hp=clamp(S.hp+4,0,100);gainMood(-1);S.mealUsed++;msg='参汤苦得扎实。太医令跪在旁边看你喝完。健康+4，心情-1。';good=false;}
   else if(k==='choco'){
-    $('event-body').innerHTML=`<h2>？？？</h2><div class="story">黑褐色的一块，歪歪扭扭包着锡纸，没人知道是谁什么时候放进宫里的。\n入口极苦，苦得舌根发麻——随即，是一阵漫开来的、霸道的甜。\n喉头一热。你忽然，很想再见一个人。\n（数值变化：？？？）</div><div class="phew"><button class="opt" onclick="chocoEnd()">……</button></div>`;
+    $('event-body').innerHTML=`<h2>巧 克 力</h2><div class="story">黑褐色的一块，歪歪扭扭包着锡纸，没人知道是谁什么时候放进宫里的。\n入口极苦，苦得舌根发麻——随即，是一阵漫开来的、霸道的甜。\n喉头一热。你忽然，很想再见一个人。\n（数值变化：？？？）</div><div class="phew"><button class="opt" onclick="chocoEnd()">……</button></div>`;
     openModal('ov-event');
     return; /* 一口，就够了 */
   }
