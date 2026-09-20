@@ -217,7 +217,7 @@
 </div>
 <!-- 史册 · 结局图鉴 -->
 <div class="overlay" id="ov-guide" onclick="if(event.target===this)closeModal('ov-guide')">
-  <div class="modal"><h2>史 册 · 结 局 图 鉴</h2><div class="desc">已录 <b id="guide-n">0</b> / 39 种结局。每一世，都算数。</div><div id="guide-body"></div>
+  <div class="modal"><h2>史 册 · 结 局 图 鉴</h2><div class="desc">第 <b id="guide-w">—</b> 世 · 主卡 <b id="guide-m">0</b> / 15 · 变体 <b id="guide-n">0</b> / 39。每一世，都算数。</div><div id="guide-body"></div>
   <div class="phew"><button class="opt" onclick="closeModal('ov-guide')">合上史册</button></div></div>
 </div>
 <!-- 事件 -->
@@ -1250,30 +1250,70 @@ function pathEndType(){
   const pre=S.sects.every(x=>x.status!=='independent')?'pathg':'path';
   return pre+'_'+(S.cw.alive?'ca':'cd')+'_'+(S.sq.alive?'sa':'sd');
 }
-const ENDING_BOOK=[
- ['unify_good_sa','海晏河清 · 生（两全）'],['unify_good_sd','海晏河清 · 生（余晖）'],
- ['unify_iron_sa','铁血一统（隔莲）'],['unify_iron_sd','铁血一统（孤阳）'],
- ['unify_gd_sa','海晏河清 · 殁（守灯）'],['unify_gd_sd','海晏河清 · 殁（万籁）'],
- ['unify_empty_sa','万里空座（水声）'],['unify_empty_sd','万里空座（无声）'],
- ['finale_bene_sa','十年未竟 · 仁主（灯暖）'],['finale_bene_sd','十年未竟 · 仁主（清净）'],
- ['finale_stale_sa','十年未竟 · 相持（三人）'],['finale_stale_sd','十年未竟 · 相持（两人）'],
- ['finale_guard_sa','十年未竟 · 守棺（余惧）'],['finale_guard_sd','十年未竟 · 守棺（独守）'],
- ['poison_sa','孤鸾饮鸩（有泪）'],['poison_sd','孤鸾饮鸩（无声）'],
- ['path_ca_sa','殉道之路（身后灯）'],['path_ca_sd','殉道之路（一盏灯）'],
- ['path_cd_sa','殉道之路（灵前路）'],['path_cd_sd','殉道之路（无拦者）'],
- ['pathg_ca_sa','盛世之殉（两盏灯）'],['pathg_ca_sd','盛世之殉（一盏灯）'],
- ['pathg_cd_sa','盛世之殉（灵前盛世）'],['pathg_cd_sd','盛世之殉（无人见）'],
- ['lamp_two','油尽灯枯 · 两盏灯'],['lamp_one','油尽灯枯 · 一盏灯'],
- ['lamp_rite','油尽灯枯 · 灵前泪'],['lamp_none','油尽灯枯 · 无谥'],
- ['suicide_two','未路 · 灯火犹双'],['suicide_one','未路 · 水榭灯存'],
- ['suicide_rite','未路 · 灵帷之侧'],['suicide_none','未路 · 无人奔丧'],
- ['choco_two','黑甜 · 双灯'],['choco_one','黑甜 · 一灯'],
- ['choco_rite','黑甜 · 灵前'],['choco_none','黑甜 · 寂静'],
- ['mutiny','众叛亲离'],['rebel','叛火焚天'],['deadwar','兵败 · 不归'],
+/* 结局图鉴 · 集卡制：主卡=剧情结局，小卡=NPC生死变体；got 记录各结局是第几世录得（0=旧历失记） */
+const MAIN_BOOK=[
+ {id:'haiyan',name:'海晏河清',intro:'诸宗尽服，四海归一。你放下不归，学着批奏章、减赋税、开粥棚——修真界的说书人，换了新词。',subs:[
+  ['unify_good_sa','生之两全','楚晚宁尚在，宋秋桐安分。水榭的门不再上闩，海棠开时，你折了一枝——至暗处唯一的善终。'],
+  ['unify_good_sd','生之余晖','他还在水榭，皇后已殁。鼎炉的火冷了。她的死，你从不后悔——是她先动的手，动在你最不能碰的人身上。'],
+  ['unify_gd_sa','殁之守灯','你赢了天下，输了那个名字。龙椅夜夜空着，奏章念给不会应声的人听。'],
+  ['unify_gd_sd','殁之万籁','皇后薨了，师尊死了。你赢了所有人，也输光了所有人。海晏河清，万籁俱寂。']]},
+ {id:'iron',name:'铁血一统',intro:'天下归一。只是这一统，是踩着白骨垒起来的。',subs:[
+  ['unify_iron_sa','隔莲','皇后盛装来贺，字字"陛下圣明"。你看着三分像谁的眉眼，只觉得吵。他还活着，隔着一池红莲，不看你。'],
+  ['unify_iron_sd','孤阳','偏殿空了，通天塔前那座新冢无人祭扫。你得到了整个修真界，却始终没能得到一个回头。']]},
+ {id:'empty',name:'万里空座',intro:'你赢下了整个天下。龙椅之上俯瞰万里山河——每一寸，都埋着他没能看到的人。',subs:[
+  ['unify_empty_sa','水声','宋秋桐还在。她来请安，你看着那张三分像谁的脸，心里一片死水——连恨都没有了。水榭的灯，夜夜亮着。'],
+  ['unify_empty_sd','无声','偏殿也空了。偌大巫山殿，灯一盏一盏地灭，最后只剩水榭那一盏。他从不回答。你知道，永远不会了。']]},
+ {id:'bene',name:'十年未竟·仁主',intro:'十年之期已至，诸宗犹存。你没做成一统的帝王，倒像个守成的仁主。',subs:[
+  ['finale_bene_sa','灯暖','水榭的门不上闩，他偶尔来提醒你批章。"混账，章都不批，像什么话。"——你说，这算不算另一种赢？'],
+  ['finale_bene_sd','清净','皇后薨了有些年头，宫里清清静静，他偶尔还来。这一世的杀孽，终究没能沾上水榭的莲。']]},
+ {id:'stale',name:'十年未竟·相持',intro:'十年之期已至。天下未平，暴名未洗。谁也没有低头，谁也没有离开。',subs:[
+  ['finale_stale_sa','三人','你与他的十年，在软禁与红莲之间耗过去。偏殿的女人也怨了十年。三个人的十年，谁也没有赢。'],
+  ['finale_stale_sd','两人','皇后没能活到第十年。你偶尔会想，若她还在，水榭会不会更热闹——随即觉得自己疯了。']]},
+ {id:'guard',name:'十年未竟·守棺',intro:'十年之期已至，天下未平，斯人已逝。你守着红莲水榭的棺椁与半壁江山，一日日数着长恨花生长的声音。',subs:[
+  ['finale_guard_sa','余惧','宋秋桐再不敢靠近水榭半步——那口棺材，比活着的他更让她怕。'],
+  ['finale_guard_sd','独守','皇后也早死了。这世上与你有过牵绊的人，只剩棺材里那一个。']]},
+ {id:'poison',name:'孤鸾饮鸩',intro:'长恨花把你的心吃空了。你换上初见那年的白衣，在他棺边坐下，饮尽了鸩酒。',subs:[
+  ['poison_sa','有泪','消息传到偏殿，宋秋桐放声大哭——不知哭的是你，还是她自己这一世。'],
+  ['poison_sd','无声','没有人哭你。偏殿空着，水榭静着——这世上最后一个记得你名字的人，就躺在旁边。']]},
+ {id:'path',name:'殉道之路',intro:'后山那条路，以生灵铺就。最后一口生灵落位，魔纹亮起，面具客卿立于道端，缓缓摘下了青铜面具。',subs:[
+  ['path_ca_sa','身后灯','魔气漫过山门那刻，你回头望了一眼——水榭的灯还亮着，偏殿的也是。两盏灯，都被你留在了身后。'],
+  ['path_ca_sd','一盏灯','他还活着，被你留在红莲池边。魔气漫来时，你忽然庆幸：至少这一幕，他看不见。'],
+  ['path_cd_sa','灵前路','水榭里停着他的灵。师尊，你要是还在，一定会拦我。可你不在了，就没人拦得住了。'],
+  ['path_cd_sd','无拦者','水榭停灵，偏殿空了。这世上再没有一个活着的人，会拦你踏上这条路。']]},
+ {id:'pathg',name:'盛世之殉',intro:'四海归一，仓廪丰实。你以朝廷名义征调献俘，号称盛世恩典——太平年景修的路，果然最结实。',subs:[
+  ['pathg_ca_sa','两盏灯','魔纹亮起那夜，他摘下了面具。你身后两盏灯，照着你亲手治出的太平——如今，都是路的材料。'],
+  ['pathg_ca_sd','一盏灯','他还活着，还不知道四海的太平，从头到尾只是一块路的材料。'],
+  ['pathg_cd_sa','灵前盛世','你治出这场盛世，原本是想说给他听的。现在路成了，你却再也说不出口了。'],
+  ['pathg_cd_sd','无人见','这场盛世最后的见证者，只剩棺材里的他，和你。']]},
+ {id:'lamp',name:'油尽灯枯',intro:'长恨花一寸寸烧干了你的心脉。史官提笔，只写了四个字：帝崩，无谥。',subs:[
+  ['lamp_two','两盏灯','弥留那夜，宫里亮着两盏灯。你攥着一枝干枯的西府海棠——不是偏殿送来的那种。'],
+  ['lamp_one','一盏灯','偏殿空了。他来了，没骂你混账，只把那盏灯拨得更亮了些。"睡吧。"'],
+  ['lamp_rite','灵前泪','你死在离他最近的一步。偏殿的泪是给皇上的，你手里的海棠，是给另一个人的。'],
+  ['lamp_none','无谥','你死在龙榻上，偌大巫山殿，竟没有一个人送行。——连谥号都是空的。']]},
+ {id:'suicide',name:'未路',intro:'更漏声里，你盯着案上那杯酒看了很久。江山、四海、殉道之路……都到了这一步，可心口那个洞，什么也填不满。',subs:[
+  ['suicide_two','灯火犹双','你饮下那杯酒的时候，宫里还亮着两盏灯。若你唤他，他会的。正因如此，才更没法唤。'],
+  ['suicide_one','水榭灯存','他来的比你想象中快，第一次露出那样的神色。"……混账。"半晌，只有两个字。'],
+  ['suicide_rite','灵帷之侧','你是在水榭灵前饮下的那杯酒。黄泉路上追上去，正好作伴——哪怕他还是不搭理你。'],
+  ['suicide_none','无人奔丧','想骂你的人死在你前头，想哭你的人也死在你前头。竟没有一盏灯，肯为踏仙君点。']]},
+ {id:'choco',name:'黑甜',intro:'黑褐色的一块，歪歪扭扭包着锡纸，没人知道是谁什么时候放进宫里的。入口极苦，随即，是一阵霸道的甜。一口，就够了。',subs:[
+  ['choco_two','双灯','太医令赶到时，宫里还亮着两盏灯。你是两盏灯之间，一个再也不会醒来的谜。'],
+  ['choco_one','一灯','"吐出来，"他说，"你给老子吐出来。"对不起。你想。这一次，是真的来不及了。'],
+  ['choco_rite','灵前','你想起很多人，最后想起的，是停在水榭里的那个人。也好，黄泉路上，替他引一段路。'],
+  ['choco_none','寂静','这是这世上留给你的最后一点甜。你含着那口甜，睡着了。这一觉，没有梦。']]},
+ {id:'deadwar',name:'兵败·不归',intro:'叛军潮水般漫过巫山殿。不归陌刀断成两截的时候，你才想起来，禁术炼出的棋子，终究不是真正的修士。',subs:[]},
+ {id:'rebel',name:'叛火焚天',intro:'反旗引燃天下积怨，诸宗联军攻破死生之巅。一代暴君，众叛亲离，死于乱军之中。',subs:[]},
+ {id:'mutiny',name:'众叛亲离',intro:'最后一枚棋子也散了。亲军哗变的那夜，没有人为你关门。',subs:[]},
 ];
+const SUB_TOTAL=MAIN_BOOK.reduce((a,m)=>a+m.subs.length,0);
+function loadEndings(){
+  try{ const b=JSON.parse(localStorage.getItem('taxian_endings_v3')||'null'); if(b&&b.got)return b; }catch(e){}
+  let got={};
+  try{ (JSON.parse(localStorage.getItem('taxian_endings_v2')||'[]')).forEach(k=>{got[k]=0;}); }catch(e){}
+  return {world:0,got};
+}
+function saveEndings(b){ try{localStorage.setItem('taxian_endings_v3',JSON.stringify(b));}catch(e){} }
 function recordEnding(k){
-  try{ const b=JSON.parse(localStorage.getItem('taxian_endings_v2')||'[]');
-    if(!b.includes(k)){ b.push(k); localStorage.setItem('taxian_endings_v2',JSON.stringify(b)); } }catch(e){}
+  try{ const b=loadEndings(); if(!(k in b.got))b.got[k]=b.world||0; saveEndings(b); }catch(e){}
 }
 function historyRecord(){
   const v=S.sects.filter(x=>x.status==='vassal').length, r=S.sects.filter(x=>x.status==='ruined').length;
@@ -1289,12 +1329,42 @@ function historyRecord(){
   else if(S.xm.freed)seg.push('曾纵少主归山。');
   return '【史官曰】'+seg.join('');
 }
+function renderGuideList(){
+  const b=loadEndings();
+  $('guide-body').innerHTML=MAIN_BOOK.map(m=>{
+    const n=m.subs.length?m.subs.filter(s=>s[0] in b.got).length:((m.id in b.got)?1:0);
+    const tot=m.subs.length||1;
+    return `<div class="fxrow ${n?'sta-good':''}" style="cursor:pointer" onclick="guideMain('${m.id}')"><span class="dl">${n?m.name:'？？？'}</span><span class="dv">${n?`已录 ${n} / ${tot}`:'尚未亲历'}</span></div>`;
+  }).join('');
+}
+function guideMain(id){
+  const m=MAIN_BOOK.find(x=>x.id===id); if(!m)return;
+  const b=loadEndings();
+  const n=m.subs.length?m.subs.filter(s=>s[0] in b.got).length:((m.id in b.got)?1:0);
+  let h=`<h2>${n?m.name:'？？？'}</h2><div class="desc">${n?`已录 ${n} / ${m.subs.length||1} · 点击条目查看变体`:'尚未亲历此结局。'}</div>`;
+  h+=`<div class="story">${n?m.intro:'这一页，还空着。'}</div>`;
+  if(m.subs.length){
+    h+=m.subs.map(s=>{const ok=s[0] in b.got;
+      return `<div class="fxrow ${ok?'sta-good':''}" style="cursor:pointer" onclick="guideSub('${m.id}','${s[0]}')"><span class="dl">${ok?m.name+' · '+s[1]:'？？？'}</span><span class="dv">${ok?(b.got[s[0]]>0?'第 '+b.got[s[0]]+' 世录得':'旧历录得'):'尚未亲历'}</span></div>`;}).join('');
+  }
+  h+=`<div class="phew"><button class="opt" onclick="renderGuideList()">返回图鉴</button></div>`;
+  $('guide-body').innerHTML=h;
+}
+function guideSub(mid,sid){
+  const m=MAIN_BOOK.find(x=>x.id===mid); const s=m.subs.find(x=>x[0]===sid); if(!m||!s)return;
+  const b=loadEndings(); const w=b.got[sid];
+  let h=`<h2>${w!==undefined?m.name+' · '+s[1]:'？？？'}</h2>`;
+  if(w===undefined) h+=`<div class="story">尚未亲历此结局。</div>`;
+  else h+=`<div class="desc">${w>0?'第 '+w+' 世录得':'旧历录得（彼时尚未记世）'}</div><div class="story">${s[2]}</div>`;
+  h+=`<div class="phew"><button class="opt" onclick="guideMain('${mid}')">返回「${m.name}」</button></div>`;
+  $('guide-body').innerHTML=h;
+}
 function openGuide(){
-  let done=[]; try{done=JSON.parse(localStorage.getItem('taxian_endings_v2')||'[]');}catch(e){}
-  $('guide-n').textContent=done.length;
-  $('guide-body').innerHTML=ENDING_BOOK.map(p=>{const ok=done.includes(p[0]);
-    return `<div class="fxrow ${ok?'sta-good':''}"><span class="dl">${ok?p[1]:'？？？'}</span><span class="dv">${ok?'已录入史册':'尚未亲历'}</span></div>`;}).join('');
-  openModal('ov-guide');
+  const b=loadEndings();
+  $('guide-w').textContent=b.world||'—';
+  $('guide-m').textContent=MAIN_BOOK.filter(m=>m.subs.length?m.subs.some(s=>s[0] in b.got):(m.id in b.got)).length;
+  $('guide-n').textContent=Object.keys(b.got).length;
+  renderGuideList(); openModal('ov-guide');
 }
 function checkUnify(){
   if(S.deferUnify||S.ended)return;
@@ -1412,6 +1482,7 @@ const INTRO=`雪落进死生之巅的那一夜，有两个人的名字被埋进�
 function startGame(fresh){
   if(fresh||!load()){ S=newState(); try{localStorage.removeItem(SAVE_KEY);}catch(e){} }
   else S=load();
+  if(fresh){ const b=loadEndings(); b.world=(b.world||0)+1; saveEndings(b); }
   if(!S.monthEvents)S.monthEvents=[];
   $('log').innerHTML='';
   log('死生之巅，巫山殿。长恨花开，从这里开始。','gold');
