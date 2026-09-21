@@ -102,6 +102,12 @@
   }
   .opt:hover:not(:disabled){border-color:var(--accent); color:var(--accent); background:#f5f0e6;}
   .opt:disabled{opacity:.45; cursor:not-allowed;}
+  /* ===== 成就 ===== */
+  .achv{border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin-bottom:10px; background:var(--panel2);}
+  .achv b{color:var(--accent); font-weight:normal; letter-spacing:2px; font-size:15px;}
+  .achv .stamp{color:#8a6d2f; font-size:12px; margin-left:8px; letter-spacing:1px;}
+  .achv p{margin:4px 0 0; font-size:13px; color:var(--dim); line-height:1.7;}
+  .achv.no{opacity:.45;}
   /* ===== 修真界 · 宗门竖排块 ===== */
   .sect{background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:12px 16px; margin-bottom:12px;}
   .sect .shead{display:flex; align-items:center; gap:10px; margin-bottom:6px; flex-wrap:wrap;}
@@ -175,7 +181,9 @@
   <div class="btns">
     <button class="btn" id="evbtn" onclick="showNextEvent()" style="display:none">待办事件</button>
     <button class="btn" onclick="openNPC()">诸人数册</button>
+    <button class="btn" onclick="openAchv()">成 就</button>
     <button class="btn" onclick="openGuide()">史 册</button>
+    <button class="btn" onclick="askRestart()">重新开始</button>
     <button class="btn danger" onclick="endMonth()">结束本季 ▶</button>
   </div>
 </div>
@@ -362,6 +370,7 @@ function render(){
   $('h-houshan').innerHTML=`<span class="badge ${S.path>=PATH_NEED?'bad':''}">殉道之路 ${fmtW(S.path)}/${fmtW(PATH_NEED)}</span><span class="badge">俘虏 ${fmtW(S.capt)}</span>`;
   const ind=S.sects.filter(x=>x.status==='independent').length, vas=S.sects.filter(x=>x.status==='vassal').length;
   $('h-xiuzhen').innerHTML=`<span class="badge warn">独立宗门 ${ind}</span><span class="badge ok">归降属国 ${vas}</span><span class="badge">覆灭 ${S.sects.filter(x=>x.status==='ruined').length}</span>`;
+  achvTick();
 }
 function log(msg, cls=''){
   const p=document.createElement('p'); if(cls)p.className=cls;
@@ -564,7 +573,7 @@ const XM_FINAL={title:'最 后 的 火 种',text:`四海归一已成定局。这
     log('名册散落满地。薛蒙被押走时没有挣扎，只回头望了一眼水榭的方向。\n"师尊……徒儿尽力了。"楚晚宁心情-8。','imp'); render(); save();}},
   {t:'招安编军，化敌为刃',f:()=>{S.xmFinal='enlisted'; const b=S.xm.band; S.troops+=b; S.xm.band=0; S.xm.freed=true; S.cw.mood=clamp(S.cw.mood+6,0,100);
     log(`名册录入军籍，踏雪宫旧部尽数编入亲军，兵力+${fmtW(b)}。水榭里的人听说了，半晌只说了一句："……倒像句人话。"楚晚宁心情+6。`,'good'); render(); save();}},
-  {t:'网开一面，纵其归山',f:()=>{S.xmFinal='freed'; S.xm.freed=true; S.cw.mood=clamp(S.cw.mood+10,0,100);
+  {t:'网开一面，纵其归山',f:()=>{S.xmFinal='freed'; S.xm.freed=true; achv('mercy'); S.cw.mood=clamp(S.cw.mood+10,0,100);
     log('你摆摆手："带你的名册，滚。"\n薛蒙怔在原地，忽然重重叩首三次，抱册掠墙而去。此后踏雪宫旧部，再未犯境。楚晚宁心情+10。','good'); render(); save();}}
 ]};
 function maybeShowEvent(){
@@ -619,7 +628,7 @@ function refinePiece(){
   /* 每次只炼1000：1体力+2.5万灵石+1000俘虏 → 1000棋子；健康-2（禁术噬主），楚晚宁心情-6，民心-1 */
   if(S.capt<1000||S.sp<1||S.coin<2.5){toast('体力、灵石或俘虏不足');return;}
   const n=1000;
-  S.sp-=1; S.coin-=2.5; S.capt-=n; S.troops+=n;
+  S.sp-=1; S.coin-=2.5; S.capt-=n; S.troops+=n; S.refTotal=(S.refTotal||0)+1;
   if(S.cw.alive)S.cw.mood=clamp(S.cw.mood-6,0,100);
   S.hp=clamp(S.hp-2,0,100); S.min=clamp(S.min-1,0,100);
   log(`于巫山殿施展<span>珍珑棋局</span>，炼棋子 ${fmtW(n)} 人。黑白落盘，万籁俱寂——此事终究瞒不过水榭里那个人。`,'imp');
@@ -629,7 +638,7 @@ function refineAll(){
   if(!takeSnap('巫山殿 · 尽数炼棋'))return;
   const n=Math.min(Math.floor(S.capt/1000), S.sp, Math.floor(S.coin/2.5));
   if(n<1){toast('体力、灵石或俘虏不足');return;}
-  S.sp-=n; S.coin-=n*2.5; S.capt-=n*1000; S.troops+=n*1000;
+  S.sp-=n; S.coin-=n*2.5; S.capt-=n*1000; S.troops+=n*1000; S.refTotal=(S.refTotal||0)+n;
   if(S.cw.alive)S.cw.mood=clamp(S.cw.mood-6,0,100);
   S.hp=clamp(S.hp-2,0,100); S.min=clamp(S.min-1,0,100);
   log(`尽出俘虏，一局炼尽——珍珑棋子再添 ${fmtW(n*1000)} 人。棋盘之上，众生无声。禁术反噬如潮涌来（健康-2）。`,'imp');
@@ -639,6 +648,7 @@ function summonSong(){
   if(!takeSnap('巫山殿 · 召幸宋皇后'))return;
   if(S.sp<5||S.coin<3||!S.sq.alive)return;
   S.sp-=5; S.coin-=3; S.sq.mood=clamp(S.sq.mood+10,0,100); S.sqSeen=true;
+  S.summonSeasonIdx=curIdx();
   if(S.cw.alive)S.cw.mood=clamp(S.cw.mood-3,0,100);
   S.hp=clamp(S.hp-1,0,100); // 酒色伤身
   gainMood(3);
@@ -647,7 +657,7 @@ function summonSong(){
 }
 function doPolitics(){
   if(!takeSnap('巫山殿 · 批红'))return;
-  if(S.sp<8)return; S.sp-=8; S.min=clamp(S.min+1,0,100);
+  if(S.sp<8)return; S.sp-=8; S.poTotal=(S.poTotal||0)+1; S.min=clamp(S.min+1,0,100);
   log('朱笔鬼画符，照准，照准，照准。批了半个时辰你就烦了，把奏章整摞赏给中书省。民间无人知晓帝君今日"勤政"。民心+1。','good');
   save(); finishAction('巫山殿 · 批红');
 }
@@ -682,12 +692,15 @@ function eat(k){
   if(!takeSnap('巫山殿 · 传膳'))return;
   closeModal('ov-event');
   let msg='',good=true;
-  if(k==='osm'){gainMood(3);S.mealUsed++;msg='桂花糕入口即化。这手艺莫名熟悉——像谁常年蹲在灶边偷学的，又像更久远的什么。抓不住。心情+3。';}
-  else if(k==='mij'){gainMood(2);S.mealUsed++;msg='蜜渍的果子甜得齁人。你小时候，好像没吃过糖。心情+2。';}
-  else if(k==='zhou'){S.hp=clamp(S.hp+3,0,100);S.mealUsed++;msg='白粥两碟小菜，热气熨帖了肠胃。健康+3。';}
-  else if(k==='hun'){gainMood(2);S.hp=clamp(S.hp+1,0,100);S.mealUsed++;msg='皮薄馅大，汤头滚烫。人间烟火，无非一碗馄饨。心情+2，健康+1。';}
-  else if(k==='ren'){S.hp=clamp(S.hp+4,0,100);gainMood(-1);S.mealUsed++;msg='参汤苦得扎实。太医令跪在旁边看你喝完。健康+4，心情-1。';good=false;}
+  if(k==='osm'){gainMood(3);S.mealUsed++;S.mealTotal=(S.mealTotal||0)+1;S.mealSeasonOsm=(S.mealSeasonOsm||0)+1;if(S.mealSeasonOsm>=2)achv('sweet');msg='桂花糕入口即化。这手艺莫名熟悉——像谁常年蹲在灶边偷学的，又像更久远的什么。抓不住。心情+3。';}
+  else if(k==='mij'){gainMood(2);S.mealUsed++;S.mealTotal=(S.mealTotal||0)+1;msg='蜜渍的果子甜得齁人。你小时候，好像没吃过糖。心情+2。';}
+  else if(k==='zhou'){S.hp=clamp(S.hp+3,0,100);S.mealUsed++;S.mealTotal=(S.mealTotal||0)+1;msg='白粥两碟小菜，热气熨帖了肠胃。健康+3。';}
+  else if(k==='hun'){gainMood(2);S.hp=clamp(S.hp+1,0,100);S.mealUsed++;S.mealTotal=(S.mealTotal||0)+1;msg='皮薄馅大，汤头滚烫。人间烟火，无非一碗馄饨。心情+2，健康+1。';}
+  else if(k==='ren'){S.hp=clamp(S.hp+4,0,100);gainMood(-1);S.mealUsed++;S.mealTotal=(S.mealTotal||0)+1;if(S.mood<20)achv('ren');msg='参汤苦得扎实。太医令跪在旁边看你喝完。健康+4，心情-1。';good=false;}
   else if(k==='choco'){
+    achv('choco1');
+    if(S.unifyAt!==undefined&&S.unifyAt===curIdx())achv('choco2');
+    if(S.path>=PATH_NEED*0.9)achv('choco3');
     $('event-body').innerHTML=`<h2>巧 克 力</h2><div class="story">黑褐色的一块，歪歪扭扭包着锡纸，没人知道是谁什么时候放进宫里的。\n入口极苦，苦得舌根发麻——随即，是一阵漫开来的、霸道的甜。\n喉头一热。你忽然，很想再见一个人。\n（数值变化：？？？）</div><div class="phew"><button class="opt" onclick="chocoEnd()">……</button></div>`;
     openModal('ov-event');
     return; /* 一口，就够了 */
@@ -722,10 +735,10 @@ function feed(k){
   if(!takeSnap('红莲水榭 · 投喂'))return;
   closeModal('ov-event');
   let msg='',good=true;
-  if(k==='mei'){S.cw.mood=clamp(S.cw.mood+5,0,100);S.cw.hp=clamp(S.cw.hp+2,0,100);gainMood(1);S.feedUsed++;msg='他把青梅含进嘴里，眉头都没动——可你看见他耳根，几不可察地红了一下。楚晚宁心情+5、健康+2，心情+1。';}
-  else if(k==='zhouf'){S.cw.hp=clamp(S.cw.hp+4,0,100);S.cw.mood=clamp(S.cw.mood+2,0,100);gainMood(1);S.feedUsed++;msg='清粥小菜，热气袅袅。他喝得很慢，像是终于肯承认自己在养病。楚晚宁健康+4、心情+2，心情+1。';}
-  else if(k==='kugua'){gainMood(6);S.cw.mood=clamp(S.cw.mood-8,0,100);S.cw.hp=clamp(S.cw.hp-4,0,100);S.feedUsed++;msg='他咬了一口，咀嚼的动作停了半息。你当场笑出声。他放下筷子，面无表情："无聊。"楚晚宁心情-8、健康-4，心情+6。';good=false;}
-  else if(k==='lajiao'){gainMood(8);S.cw.mood=clamp(S.cw.mood-10,0,100);S.cw.hp=clamp(S.cw.hp-6,0,100);S.feedUsed++;msg='红豆糕里迸出小米辣，他被呛得别过脸去，咳得肩头发颤，耳根通红。你笑得直不起腰——然后被一记眼刀钉回原位。楚晚宁心情-10、健康-6，心情+8。';good=false;}
+  if(k==='mei'){S.cw.mood=clamp(S.cw.mood+5,0,100);S.cw.hp=clamp(S.cw.hp+2,0,100);gainMood(1);S.feedUsed++;S.cwTouchSeasonIdx=curIdx();msg='他把青梅含进嘴里，眉头都没动——可你看见他耳根，几不可察地红了一下。楚晚宁心情+5、健康+2，心情+1。';}
+  else if(k==='zhouf'){S.cw.hp=clamp(S.cw.hp+4,0,100);S.cw.mood=clamp(S.cw.mood+2,0,100);gainMood(1);S.feedUsed++;S.cwTouchSeasonIdx=curIdx();msg='清粥小菜，热气袅袅。他喝得很慢，像是终于肯承认自己在养病。楚晚宁健康+4、心情+2，心情+1。';}
+  else if(k==='kugua'){if(S.cw.hp<15)achv('stillEat');gainMood(6);S.cw.mood=clamp(S.cw.mood-8,0,100);S.cw.hp=clamp(S.cw.hp-4,0,100);S.feedUsed++;S.kuguaTotal=(S.kuguaTotal||0)+1;if(S.cw.mood<15)achv('bitter');msg='他咬了一口，咀嚼的动作停了半息。你当场笑出声。他放下筷子，面无表情："无聊。"楚晚宁心情-8、健康-4，心情+6。';good=false;}
+  else if(k==='lajiao'){if(S.cw.hp<15)achv('stillEat');gainMood(8);S.cw.mood=clamp(S.cw.mood-10,0,100);S.cw.hp=clamp(S.cw.hp-6,0,100);S.feedUsed++;S.lajiaoTotal=(S.lajiaoTotal||0)+1;S.lajiaoSeasonIdx=curIdx();S.cwTouchSeasonIdx=curIdx();if(S.cw.mood<15)achv('bitter');msg='红豆糕里迸出小米辣，他被呛得别过脸去，咳得肩头发颤，耳根通红。你笑得直不起腰——然后被一记眼刀钉回原位。楚晚宁心情-10、健康-6，心情+8。';good=false;}
   log(msg,good?'good':'imp');
   save(); finishAction('红莲水榭 · 投喂');
 }
@@ -741,7 +754,7 @@ function suicideAsk(){
     title:'了 断',
     text:'更漏声里，你盯着案上那杯酒看了很久。\n江山、四海、殉道之路……都到了这一步，可心口那个洞，什么也填不满。\n（心情已低于30——你可就此了断，就此终局。）',
     opts:[
-      {t:'饮下',f:()=>{ ending('suicide_'+(S.cw.alive&&S.sq.alive?'two':(S.cw.alive?'one':(S.sq.alive?'rite':'none')))); }},
+      {t:'饮下',f:()=>{ if(S.moodStartGe30)achv('quit'); if(S.year>=10)achv('late'); if(S.troops>=200000)achv('rich'); ending('suicide_'+(S.cw.alive&&S.sq.alive?'two':(S.cw.alive?'one':(S.sq.alive?'rite':'none')))); }},
       {t:'再撑一撑',f:()=>{ log('你把那杯酒泼在了地上。今夜，还是算了。'); render(); save(); }}
     ]
   });
@@ -778,6 +791,7 @@ function prisonAsk(){
   if(!takeSnap('天牢 · 审问薛蒙'))return;
   if(!prisonGuard()||S.sp<5)return;
   S.sp-=5; S.hp=clamp(S.hp-1,0,100); // 提审劳神
+  S.paTotal=(S.paTotal||0)+1;
   S.xm.band=Math.max(0,S.xm.band-300);
   log('天牢提审。少年咬碎牙关，一个字不吐——可你的人顺着他随从的醉话，端了旧部一处据点。旧部-300。','good');
   save(); finishAction('天牢 · 审问薛蒙');
@@ -806,7 +820,7 @@ function prisonKill(){
 function prisonFree(){
   if(!takeSnap('天牢 · 放归薛蒙'))return;
   if(!prisonGuard())return;
-  S.xm.status='escaped'; S.xm.freed=true;
+  S.xm.status='escaped'; S.xm.freed=true; achv('mercy');
   S.cw.mood=clamp(S.cw.mood+10,0,100); S.min=clamp(S.min+2,0,100);
   const tx=S.sects.find(x=>x.key==='taxue');
   if(tx&&tx.status==='independent')tx.def=Math.min(tx.def0*2.5, tx.def+2000);
@@ -823,6 +837,7 @@ const CHESS_LINES=[
 function chessPlay(){
   if(!takeSnap('红莲水榭 · 手谈一局'))return;
   if(!S.cw.alive||S.sp<2)return; S.sp-=2;
+  S.chTotal=(S.chTotal||0)+1; S.cwTouchSeasonIdx=curIdx(); if(S.lajiaoSeasonIdx===curIdx())achv('sorry');
   S.cw.mood=clamp(S.cw.mood+3,0,100); gainMood(1);
   log(CHESS_LINES[rnd(CHESS_LINES.length)],'good');
   save(); finishAction('红莲水榭 · 手谈一局');
@@ -830,6 +845,7 @@ function chessPlay(){
 function accompany(){
   if(!takeSnap('红莲水榭 · 陪伴'))return;
   if(S.sp<6)return; S.sp-=6;
+  S.acTotal=(S.acTotal||0)+1; S.cwTouchSeasonIdx=curIdx();
   S.hp=clamp(S.hp+2,0,100); S.cw.mood=clamp(S.cw.mood+6,0,100); S.cw.hp=clamp(S.cw.hp+4,0,100); gainMood(3);
   log(COMPANIES[rnd(COMPANIES.length)],'good');
   save(); finishAction('红莲水榭 · 陪伴');
@@ -837,6 +853,7 @@ function accompany(){
 function favor(){
   if(!takeSnap('红莲水榭 · 宠幸'))return;
   if(S.sp<8)return; S.sp-=8;
+  S.cwTouchSeasonIdx=curIdx();
   gainMood(8); S.cw.mood=clamp(S.cw.mood-6,0,100); S.cw.hp=clamp(S.cw.hp+3,0,100);
   if(S.sq.alive)S.sq.mood=clamp(S.sq.mood-10,0,100);
   log(FAVOR_LINES[rnd(FAVOR_LINES.length)]+(S.sq.alive?'　偏殿里，皇后摔碎了一套茶盏。':''));
@@ -861,6 +878,7 @@ function fillPath(n, unit){
   S.sp-=1; S.hp=clamp(S.hp-2,0,100); // 押送填路，尸山血海，耗神蚀体
   if(unit==='troop'){S.troops-=n;}else{S.capt-=n;}
   S.path+=n;
+  S.pathSeasonGain=(S.pathSeasonGain||0)+n; if(S.pathSeasonGain>=8000)achv('build');
   if(S.cw.alive)S.cw.mood=clamp(S.cw.mood-4,0,100);
   S.min=clamp(S.min-1,0,100);
   S.sects.filter(x=>x.status==='independent').forEach(x=>x.loy=clamp(x.loy-1,0,100));
@@ -879,6 +897,7 @@ function fillPathAll(unit){
   S.sp-=n; S.hp=clamp(S.hp-2,0,100); // 押送填路，尸山血海，耗神蚀体
   if(unit==='troop'){S.troops-=n*1000;}else{S.capt-=n*1000;}
   S.path+=n*1000;
+  S.pathSeasonGain=(S.pathSeasonGain||0)+n*1000; if(S.pathSeasonGain>=8000)achv('build');
   if(S.cw.alive)S.cw.mood=clamp(S.cw.mood-4,0,100);
   S.min=clamp(S.min-1,0,100);
   S.sects.filter(x=>x.status==='independent').forEach(x=>x.loy=clamp(x.loy-1,0,100));
@@ -942,7 +961,7 @@ function battle(s){
     if(s.key==='guyue'){ S.cw.mood=clamp(S.cw.mood-10,0,100); S.cw.hp=clamp(S.cw.hp-5,0,100); }
     if(s.key==='rufeng'){ if(S.sq.alive)S.sq.mood=clamp(S.sq.mood+10,0,100); gainMood(S.moodLock?0:3); }
     if(s.key==='taxue'){ S.cw.mood=clamp(S.cw.mood-25,0,100); S.cw.hp=clamp(S.cw.hp-5,0,100);
-      S.xm.alive=false; S.xm.band=0;
+      S.xm.alive=false; S.xm.band=0; achv('first');
       extra=(S.sq.alive?'':'宋皇后已不在，')+'没有人再挡在你与他之间——昆仑天堑告破，白玉宫墙染血。'+extra; }
     log(`<b>${s.name}覆灭。</b>俘虏${fmtW(s.pop)}口，掠灵石${fmtW(s.stone)}万充入国库。折损兵力${fmtW(loss)}。天下同愤：独立诸宗忠诚-3，民心-12。 ${extra}`,'imp');
   }else{
@@ -1013,6 +1032,7 @@ function chuDeath(scene){
   if(!S.cw.alive)return;
   S.cw.alive=false; S.cw.hp=0;
   S.mood=clamp(S.mood-30,0,100); S.moodLock=true;
+  if(S.sq.alive)achv('like');
   log(`<b>楚晚宁薨逝。</b>`,'imp');
   queueEvent({
     title:'水 榭 灯 灭',
@@ -1044,6 +1064,7 @@ function processMonth(){
     log('国库告罄！军饷不济，逃兵日增，军心浮动。','imp');
   }
   // 2 主控被动（兵戈之年，人心易散，民心每季自然流失）
+  S.moodStartGe30=S.mood>=30;
   S.hp=clamp(S.hp-0.5,0,100);
   S.min=clamp(S.min-(S.exam?0.75:1),0,100);
   S.mood=clamp(S.mood-(S.moodLock?2.5:1), S.moodLock?0:5,100);
@@ -1051,10 +1072,12 @@ function processMonth(){
     S.min=clamp(S.min-2,0,100);
     log('长恨花噬心。你近来看谁都不顺眼，殿前失手责毙了两个内侍。市井窃语：帝君暴戾。民心-2。','imp');
   }
+  S.moodLowStreak=(S.mood<15)?(S.moodLowStreak||0)+1:0; if(S.moodLowStreak>=4&&S.cw.alive)achv('hate');
   // 3 楚晚宁被动（不归戾气与灵核相克，健康逐年流失）
   if(S.cw.alive){
     S.cw.hp=clamp(S.cw.hp-1,0,100);
     if(S.sects.find(x=>x.key==='guyue'&&x.status==='vassal')) S.cw.hp=clamp(S.cw.hp+2,0,100);
+    S.cwFullStreak=(S.cw.hp>=100)?(S.cwFullStreak||0)+1:0; if(S.cwFullStreak>=6)achv('garden');
     S.cw.mood=clamp(S.cw.mood-(S.cwBond?0.5:1),0,100);
     if(S.month===4){ S.cw.hp=clamp(S.cw.hp-4,0,100); log('寒疾岁发。红莲水榭咳声彻夜，他缠绵病榻，旧伤又添新霜。','imp'); }
     if(S.cw.hp<25&&S.cw.hp>0) log(`楚晚宁健康仅剩${Math.round(S.cw.hp)}，已近油尽灯枯。`,'imp');
@@ -1073,6 +1096,7 @@ function processMonth(){
     }
     if(S.sq.mood<30){ S.sqAnger=(S.sqAnger||0)+1; }
     else { S.sqAnger=0; }
+    S.sqLowStreak=(S.sq.mood<30)?(S.sqLowStreak||0)+1:0; if(S.sqLowStreak>=4)achv('cold');
     if(S.sqAnger>=2){
       S.sq.tortured=true;
       if(S.cw.alive){
@@ -1097,6 +1121,7 @@ function processMonth(){
   if(S.xm.alive){
     if(S.xm.status==='jailed'){
       S.cw.mood=clamp(S.cw.mood-3,0,100);
+      if(S.year>=10)achv('jail');
       if(S.month===1) log('天牢深处传来绝食的动静。水榭里的人听着，一夜白头似的。','imp');
     }else if(!S.xm.freed){
       S.xm.band=Math.min(6000,S.xm.band+150);
@@ -1189,6 +1214,7 @@ function processMonth(){
   S.month++;
   S.sp=(S.hp<25?15:(S.mood>=80?23:20));
   S.cwHurt=false; S.sqSeen=false; S.mealUsed=0; S.feedUsed=0;
+  S.mealSeasonOsm=0; S.pathSeasonGain=0; S.summonSeasonIdx=null; S.cwTouchSeasonIdx=null; S.lajiaoSeasonIdx=null;
   if(S.month>4){ S.month=1; S.year++; }
   S.monthEvents=(S.monthEvents||[]).concat(evq);
   save(); render();
@@ -1363,7 +1389,12 @@ function loadEndings(){
 }
 function saveEndings(b){ try{localStorage.setItem('taxian_endings_v3',JSON.stringify(b));}catch(e){} }
 function recordEnding(k){
-  try{ const b=loadEndings(); if(!(k in b.got))b.got[k]=b.world||0; saveEndings(b); }catch(e){}
+  try{
+    const b=loadEndings(); if(!(k in b.got))b.got[k]=b.world||0; saveEndings(b);
+    const map={}; ENDING_BOOK.forEach(g=>g.subs.forEach(s=>map[s[0]]=g.id));
+    const mains=new Set(Object.keys(b.got).filter(x=>map[x]).map(x=>map[x]));
+    if(mains.size>=10)achv('book');
+  }catch(e){}
 }
 function historyRecord(){
   const v=S.sects.filter(x=>x.status==='vassal').length, r=S.sects.filter(x=>x.status==='ruined').length;
@@ -1419,6 +1450,8 @@ function openGuide(){
 function checkUnify(){
   if(S.deferUnify||S.ended)return;
   if(S.sects.every(x=>x.status!=='independent')){
+    if(!S.sects.some(x=>x.status==='ruined'))achv('peace');
+    S.unifyAt=curIdx();
     queueEvent({title:'四 海 归 一',text:`最后一道降表送抵巫山殿。天下宗门，尽入版图。\n群臣伏地，山呼千岁："请陛下受尊号，定鼎天下，昭告万世！"\n你望向红莲水榭的方向。江山已在掌中，四海再无敌手。\n——可你心里清楚，你要的从来不止这个。\n\n【殉道之路：已填 ${fmtW(S.path)} / ${fmtW(PATH_NEED)}。俘虏 ${fmtW(S.capt)}、珍珑棋子 ${fmtW(S.troops)}，皆可于后山填入。${S.path<PATH_NEED?'此路若满，天下将见证另一种结局。':''}】`,opts:[
       {t:'受尊号，海晏河清',f:()=>{ ending(unifyEndType()); }},
       {t:'暂不受尊，另有宏图',f:()=>{ S.deferUnify=true; log('你摆手命群臣退下。尊号的事，容后再议。\n【终章开启：巫山殿可随时"受尊号"收官；若在此期间填满殉道之路，天下将见证另一种结局。】','gold'); render(); save(); }}
@@ -1514,6 +1547,97 @@ function openNPC(){
   $('npc-body').innerHTML=h; openModal('ov-npc');
 }
 
+/* ---------------- 成就图鉴 ---------------- */
+const ACHV_KEY='taxian_achv_v1';
+function loadAchv(){ try{ const v=JSON.parse(localStorage.getItem(ACHV_KEY)); return (v&&typeof v==='object')?v:{}; }catch(e){ return {}; } }
+function saveAchv(a){ try{ localStorage.setItem(ACHV_KEY, JSON.stringify(a)); }catch(e){} }
+function curIdx(){ return (S.year||1)*4+(S.month||1); }
+const ACH_DEFS=[
+ {id:'choco1',name:'一口就够了',desc:'那块锡纸包着的东西，吃一口就够了。'},
+ {id:'choco2',name:'舍命尝鲜',desc:'四海归一的同一季，还惦记着那口甜。'},
+ {id:'choco3',name:'遗诏是甜的',desc:'殉道之路将满，先吃块甜的压压惊。'},
+ {id:'feast',name:'养生大师',desc:'累计传膳二十次。太医令热泪盈眶。'},
+ {id:'sweet',name:'甜品暴政',desc:'一季之内连吃两份桂花糕。'},
+ {id:'ren',name:'药膳受害者',desc:'喝完人参羹，心情低到谷底。良药苦口，苦的是心。'},
+ {id:'glut',name:'本座的口腹之欲',desc:'累计用膳超过十五次。江山社稷，先放一放。'},
+ {id:'prank',name:'整蛊艺术家',desc:'累计整蛊投喂十次。他面无表情，你乐此不疲。'},
+ {id:'stillEat',name:'他还是会吃的',desc:'他都病成那样了，你还喂他吃苦瓜绿豆糕。'},
+ {id:'badBoss',name:'黑心雇主',desc:'他缠绵病榻，你神清气爽。良心呢？'},
+ {id:'sorry',name:'他真的会谢',desc:'同一季先喂小米辣红豆糕，再拉他手谈一局。'},
+ {id:'bitter',name:'苦瓜效应',desc:'把楚晚宁的心情整到十五以下。他会记仇的。'},
+ {id:'quit',name:'不玩了',desc:'心情尚可，主动了断。这游戏不好玩。'},
+ {id:'late',name:'拖到最后',desc:'第十年之后才了断。硬是熬满了一整个纪元。'},
+ {id:'rich',name:'江山与本座皆可抛',desc:'手握二十万大军，说走就走。'},
+ {id:'hate',name:'长恨花资深用户',desc:'心情低迷连续四季。花香越浓，心越空。'},
+ {id:'red',name:'批红机器',desc:'累计批红四十次。朱笔都写秃了。'},
+ {id:'poor',name:'穷得只剩兵',desc:'兵力七万起步，民心归零，国库不足五万。'},
+ {id:'smile',name:'他笑了',desc:'让楚晚宁的心情达到九十。史官拒绝记录此事。'},
+ {id:'garden',name:'水榭园丁',desc:'楚晚宁健康满值连续六季。比他还上心。'},
+ {id:'chat',name:'陪聊专员',desc:'累计陪伴三十次。话不投机，也要陪满。'},
+ {id:'chess',name:'棋逢对手',desc:'累计手谈二十局。黑白之间，旧影重重。'},
+ {id:'scheme',name:'帝王心术',desc:'召幸皇后的同一季，转头去水榭"安抚"。'},
+ {id:'buy',name:'有钱能使皇后笑',desc:'把皇后心情哄到满值。赝品的笑也是笑。'},
+ {id:'cold',name:'冷宫气象',desc:'皇后心情低于三十连续四季。凤位冻成冰窖。'},
+ {id:'like',name:'三分像故人',desc:'楚晚宁死时，皇后还在。留下她，只因那三分眉眼。'},
+ {id:'visit',name:'探监常客',desc:'累计审问薛蒙十次。天牢都快成你家客厅了。'},
+ {id:'jail',name:'天牢养老院',desc:'把薛蒙一路关到第十年。管吃管住。'},
+ {id:'mercy',name:'仁至义尽',desc:'放归薛蒙。算你有始有终。'},
+ {id:'first',name:'一战功成',desc:'攻克踏雪宫。踏雪无痕，血染昆仑。'},
+ {id:'build',name:'基建狂魔',desc:'单季填殉道之路八千生灵。工期内卷之王。'},
+ {id:'pawn',name:'棋子比人贵',desc:'累计炼棋三万人。棋盘越满，人间越空。'},
+ {id:'peace',name:'四海皆降',desc:'十宗尽数归降，无一覆灭。不流血的天下。'},
+ {id:'book',name:'图鉴外交家',desc:'结局图鉴集齐十张主卡。各条路都走过了。'}
+];
+function achv(id){
+  if(!S||S.ended)return;
+  const d=ACH_DEFS.find(a=>a.id===id); if(!d)return;
+  if(!S.achvGot)S.achvGot={};
+  if(S.achvGot[id])return;
+  const all=loadAchv();
+  if(all[id]){ S.achvGot[id]=all[id]; return; }
+  const rec={w:S.world||1, at:`第${S.year||1}年${sqName(S.month||1)}季`};
+  S.achvGot[id]=rec; all[id]=rec; saveAchv(all);
+  toast(`成就解锁：${d.name}`);
+  log(`【成就】<span>${d.name}</span> —— ${d.desc}`,'gold');
+}
+function achvTick(){
+  if(!S||S.ended)return;
+  if((S.mealTotal||0)>15)achv('glut');
+  if((S.mealTotal||0)>=20)achv('feast');
+  if(((S.kuguaTotal||0)+(S.lajiaoTotal||0))>=10)achv('prank');
+  if((S.poTotal||0)>=40)achv('red');
+  if((S.acTotal||0)>=30)achv('chat');
+  if((S.chTotal||0)>=20)achv('chess');
+  if((S.paTotal||0)>=10)achv('visit');
+  if((S.refTotal||0)>=30)achv('pawn');
+  if(S.cw.alive&&S.cw.mood>=90)achv('smile');
+  if(S.cw.alive&&S.cw.hp<15&&S.mood>=80)achv('badBoss');
+  if(S.sq.alive&&S.sq.mood>=100)achv('buy');
+  if(S.troops>=70000&&S.min<=0&&S.coin<5)achv('poor');
+  if(S.summonSeasonIdx!=null&&S.cwTouchSeasonIdx!=null&&S.summonSeasonIdx===S.cwTouchSeasonIdx)achv('scheme');
+  try{
+    const b=loadEndings(); const mains=new Set();
+    ENDING_BOOK.forEach(g=>g.subs.forEach(s=>{ if(b.got&&b.got[s[0]])mains.add(g.id); }));
+    if(mains.size>=10)achv('book');
+  }catch(e){}
+}
+function openAchv(){
+  const all=loadAchv();
+  const items=ACH_DEFS.map(d=>{
+    const r=all[d.id];
+    return r
+      ?`<div class="achv"><b>${d.name}</b><span class="stamp">已解锁 · 第${r.w}世 ${r.at}</span><p>${d.desc}</p></div>`
+      :`<div class="achv no"><b>？？？</b><p>尚未解锁。</p></div>`;
+  }).join('');
+  const n=Object.keys(all).length;
+  $('event-body').innerHTML=`<h2>成 就</h2><div class="story">已解锁 ${n} / ${ACH_DEFS.length}。\n成就跨周目保留——重堕红尘，它们也记得你来过。</div><div style="max-height:48vh; overflow-y:auto; text-align:left;">${items}</div><div class="phew"><button class="opt" onclick="closeModal('ov-event')">关 闭</button></div>`;
+  openModal('ov-event');
+}
+function askRestart(){
+  $('event-body').innerHTML=`<h2>重 堕 红 尘</h2><div class="story">推倒这一世，从头再来。\n结局图鉴与成就将保留。这一世的恩怨，就此勾销。</div><div class="phew"><button class="opt" onclick="restartFresh()">重 堕 红 尘</button><button class="opt" onclick="closeModal('ov-event')">罢 了</button></div>`;
+  openModal('ov-event');
+}
+
 /* ---------------- 序章与启动 ---------------- */
 const INTRO=`雪落进死生之巅的那一夜，有两个人的名字被埋进了土里。
 
@@ -1532,7 +1656,8 @@ const INTRO=`雪落进死生之巅的那一夜，有两个人的名字被埋进�
 function startGame(fresh){
   if(fresh||!load()){ S=newState(); try{localStorage.removeItem(SAVE_KEY);}catch(e){} }
   else S=load();
-  if(fresh){ const b=loadEndings(); b.world=(b.world||0)+1; saveEndings(b); }
+  if(fresh){ const b=loadEndings(); b.world=(b.world||0)+1; saveEndings(b); S.world=b.world; }
+  else { if(!S.world){ try{S.world=loadEndings().world||1;}catch(e){S.world=1;} } }
   if(!S.monthEvents)S.monthEvents=[];
   $('log').innerHTML='';
   log('死生之巅，巫山殿。长恨花开，从这里开始。','gold');
