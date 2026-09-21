@@ -69,6 +69,8 @@
   #logbox p{margin-bottom:6px; color:#57534a;}
   #logbox p .t{color:var(--faint); margin-right:8px; font-size:12.5px;}
   #logbox p.imp{color:#1f1c17; font-weight:600;} #logbox p.good{color:var(--ok);} #logbox p.gold{color:var(--accent);}
+  #side .restartbtn{align-self:flex-end; padding:5px 16px; font-size:13px; color:var(--dim);}
+  #side .restartbtn:hover{color:var(--bad); border-color:var(--bad);}
   /* ===== 弹窗 ===== */
   .overlay{position:fixed; inset:0; background:rgba(43,40,32,.45); z-index:100; display:none; align-items:center; justify-content:center; padding:20px;}
   .overlay.show{display:flex;}
@@ -183,7 +185,6 @@
     <button class="btn" onclick="openNPC()">诸人数册</button>
     <button class="btn" onclick="openAchv()">成 就</button>
     <button class="btn" onclick="openGuide()">史 册</button>
-    <button class="btn" onclick="askRestart()">重新开始</button>
     <button class="btn danger" onclick="endMonth()">结束本季 ▶</button>
   </div>
 </div>
@@ -209,6 +210,7 @@
   </div>
   <div id="side">
     <div id="logbox"><h4>死生之巅 · 起居注</h4><div id="log"></div></div>
+    <button class="btn restartbtn" onclick="askRestart()">重 新 开 始</button>
   </div>
 </div>
 
@@ -431,8 +433,8 @@ function renderPlace(){
         ${actBtn('手谈一局','2体力','楚晚宁心情+3 · 主控心情+1','chessPlay()', S.sp<2, S.sp<2?'体力不足（需2点）':'')}
         ${actBtn('宠幸','8体力','主控心情+8 · 楚晚宁心情-6 · 健康+3 · 宋皇后心情-10','favor()', S.sp<8, S.sp<8?'体力不足（需8点）':'')}
         ${actBtn('折磨','8体力','主控心情+14 · 健康-3 · 楚晚宁心情-14 · 健康-12 · 宋皇后心情+8','torture()', S.sp<8, S.sp<8?'体力不足（需8点）':'')}
-      </div>
-      ${feedBlock()}`;
+        ${feedBlock()}
+      </div>`;
     }
   }else if(curPlace==='houshan'){
     const pct=Math.round(S.path/PATH_NEED*100);
