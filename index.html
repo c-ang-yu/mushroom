@@ -239,7 +239,7 @@
 <div class="overlay" id="ov-end">
   <div class="modal cine"><h1 class="end" id="end-title"></h1>
     <div class="txt" id="end-txt"></div><div class="stats" id="end-stats"></div>
-    <div class="phew"><button class="opt" onclick="location.reload()">重 堕 红 尘（重新开始）</button></div>
+    <div class="phew"><button class="opt" onclick="restartFresh()">重 堕 红 尘（重新开始）</button></div>
   </div>
 </div>
 <div id="toast"></div>
@@ -340,10 +340,11 @@ function load(){ try{
   return o;
 }catch(e){return null;} }
 
+function restartFresh(){ try{localStorage.removeItem(SAVE_KEY);}catch(e){} location.reload(); }
 /* ---------------- 渲染 ---------------- */
 function render(){
   const dg=(id,bad)=>{const el=$(id); el.classList.toggle('danger',bad); const bar=el.parentElement.querySelector('.bar i'); if(bar)bar.classList.toggle('danger',bad);};
-  $('t-time').textContent=`第${S.year}年 ${sqName(S.month)}季 · 体力${S.sp}/20`;
+  $('t-time').textContent=`第${S.year}年 ${sqName(S.month)}季`;
   $('t-sp').textContent=S.sp;
   $('t-hp').textContent=Math.round(S.hp); $('b-hp').style.width=S.hp+'%'; dg('t-hp',S.hp<25);
   $('t-mood').textContent=Math.round(S.mood); $('b-mood').style.width=S.mood+'%'; dg('t-mood',S.mood<20);
@@ -390,11 +391,15 @@ function renderPlace(){
     const noSp1=S.sp<1, noCoinR=S.coin<2.5, noCap=S.capt<1000;
     const refineDis=noSp1||noCoinR||noCap;
     const refineWhy=noCap?'俘虏不足1000，请先获得俘虏（攻打宗门、镇压叛军可得）':(noSp1?'体力不足（需1点）':(noCoinR?'国库灵石不足':''));
+    const allN=Math.min(Math.floor(S.capt/1000), S.sp, Math.floor(S.coin/2.5));
+    const allDis=!(allN>=1);
+    const allWhy=S.capt<1000?'俘虏不足1000':(S.sp<1?'体力不足':(S.coin<2.5?'国库灵石不足':''));
     const sumDis=!(S.sp>=5&&S.coin>=3&&S.sq.alive);
     const sumWhy=!S.sq.alive?'皇后已故':(S.sp<5?'体力不足（需5点）':(S.coin<3?'国库灵石不足（需3万）':''));
     h=`<h2>巫 山 殿</h2><div class="desc">鎏金棋盘之上，黑白子皆是活人。宋皇后于偏殿候驾。</div>
     <div class="acts">
       ${actBtn('炼棋子 ×1000（珍珑棋局）','1体力·2.5万灵石·1000俘虏','棋子效忠致死转为可调之兵 · 健康-2 · 楚晚宁心情-6 · 民心-1（每点一次只炼一千，禁术噬主，多炼多伤）','refinePiece()', refineDis, refineWhy)}
+      ${actBtn('尽数炼棋','按千取整 · 共耗'+allN+'体力·'+(allN*2.5)+'万灵石','把现有俘虏一次性炼完（反噬只计一次：健康-2 · 楚晚宁心情-6 · 民心-1）','refineAll()', allDis, allWhy)}
       ${actBtn('召幸宋秋桐','5体力·3万灵石','皇后心情+10 · 主控心情+3 · 健康-1 · 楚晚宁心情-3','summonSong()', sumDis, sumWhy)}
       ${actBtn('批红','8体力','朱笔照准，糊弄朝局 · 民心+1','doPolitics()', S.sp<8, S.sp<8?'体力不足（需8点）':'')}
       ${actBtn('独酌忆旧','4体力','梨花白开封，无人对饮 · 心情-6','drinkAlone()', S.sp<4, S.sp<4?'体力不足（需4点）':'')}
@@ -423,11 +428,15 @@ function renderPlace(){
   }else if(curPlace==='houshan'){
     const pct=Math.round(S.path/PATH_NEED*100);
     const capDis=!(S.sp>=1&&S.capt>=1000), trDis=!(S.sp>=1&&S.troops>=1000);
+    const rem=Math.max(0,PATH_NEED-S.path);
+    const capN=Math.min(Math.floor(Math.min(S.capt,rem)/1000), S.sp), trN=Math.min(Math.floor(Math.min(S.troops,rem)/1000), S.sp);
     h=`<h2>后 山 · 殉 道 之 路</h2><div class="desc">一条通往幽冥深处的石道，要以生灵铺满方可通行。面具客卿说：填满它，你就能再见师昧。所需生灵：约${fmtW(PATH_NEED)}。每点一次，只填入1000生灵、耗1体力——多填，需多点。</div>
     <div class="story">目前填入：<b>${fmtW(S.path)}</b> / ${fmtW(PATH_NEED)}（${pct}%）　俘虏：${fmtW(S.capt)}　珍珑棋子：${fmtW(S.troops)}</div>
     <div class="acts">
       ${actBtn('填入1000俘虏','1体力','石道深处传来细碎的声音','fillPath(1000,\'capt\')', capDis, capDis?(S.capt<1000?'俘虏不足（现有'+fmtW(S.capt)+'）':'体力不足（需1点）'):'')}
       ${actBtn('填入1000棋子','1体力','珍珑棋子面无表情，一个接一个坠入幽蓝','fillPath(1000,\'troop\')', trDis, trDis?(S.troops<1000?'棋子不足（现有'+fmtW(S.troops)+'）':'体力不足（需1点）'):'')}
+      ${actBtn('俘虏尽数填路','按千取整 · 共耗'+capN+'体力','把俘虏一次性填入石道（反噬只计一次：健康-2 · 楚晚宁心情-4 · 民心-1 · 独立诸宗忠诚-1）','fillPathAll(\'capt\')', !(capN>=1), capN<1?'可填生灵不足1000或体力不足':'')}
+      ${actBtn('棋子尽数填路','按千取整 · 共耗'+trN+'体力','把棋子一次性填入石道（反噬只计一次：健康-2 · 楚晚宁心情-4 · 民心-1 · 独立诸宗忠诚-1）','fillPathAll(\'troop\')', !(trN>=1), trN<1?'可填生灵不足1000或体力不足':'')}
     </div>
     <div class="desc" style="margin-top:10px">每一次填入（1000生灵）：健康-2 · 楚晚宁心情-4 · 独立诸宗忠诚-1（已归降宗门不减） · 民心-1（押送生灵填路，尸山血海，天下侧目，水榭之中人尽皆知）。<br>夜里有戴面具的客人提醒过你：这条路，通向"回家"的门。</div>`;
   }else if(curPlace==='xiuzhen'){
@@ -616,6 +625,16 @@ function refinePiece(){
   log(`于巫山殿施展<span>珍珑棋局</span>，炼棋子 ${fmtW(n)} 人。黑白落盘，万籁俱寂——此事终究瞒不过水榭里那个人。`,'imp');
   save(); finishAction('巫山殿 · 炼棋子');
 }
+function refineAll(){
+  if(!takeSnap('巫山殿 · 尽数炼棋'))return;
+  const n=Math.min(Math.floor(S.capt/1000), S.sp, Math.floor(S.coin/2.5));
+  if(n<1){toast('体力、灵石或俘虏不足');return;}
+  S.sp-=n; S.coin-=n*2.5; S.capt-=n*1000; S.troops+=n*1000;
+  if(S.cw.alive)S.cw.mood=clamp(S.cw.mood-6,0,100);
+  S.hp=clamp(S.hp-2,0,100); S.min=clamp(S.min-1,0,100);
+  log(`尽出俘虏，一局炼尽——珍珑棋子再添 ${fmtW(n*1000)} 人。棋盘之上，众生无声。禁术反噬如潮涌来（健康-2）。`,'imp');
+  save(); finishAction('巫山殿 · 尽数炼棋');
+}
 function summonSong(){
   if(!takeSnap('巫山殿 · 召幸宋皇后'))return;
   if(S.sp<5||S.coin<3||!S.sq.alive)return;
@@ -643,19 +662,25 @@ function drinkAlone(){
 function mealBlock(){
   if(S.mealUsed===undefined)S.mealUsed=0;
   const left=2-S.mealUsed;
-  const d=left<=0?'本季用膳已足两次':'';
-  let h=`<div class="desc" style="margin-top:10px">传 膳（每季两次 · 本季剩余 ${left} 次）：御膳房呈上几样吃食，随君取用。</div><div class="acts">`;
-  h+=actBtn('桂花糕','不耗时','心情+3（甜香入喉，恍惚想起故人手艺）','eat(\'osm\')',left<=0,d);
-  h+=actBtn('蜜饯果子','不耗时','心情+2','eat(\'mij\')',left<=0,d);
-  h+=actBtn('清粥小菜','不耗时','健康+3','eat(\'zhou\')',left<=0,d);
-  h+=actBtn('一盏馄饨','不耗时','心情+2 · 健康+1','eat(\'hun\')',left<=0,d);
-  h+=actBtn('人参羹','不耗时','健康+4 · 心情-1（药膳苦口）','eat(\'ren\')',left<=0,d);
-  h+=actBtn('巧克力','不耗时','？？？','eat(\'choco\')',false,'');
-  return h+'</div>';
+  if(left<=0)return `<div class="desc" style="margin-top:10px">本季用膳已足两次。</div>`;
+  return actBtn('传 膳（剩余'+left+'次）','不耗时','御膳房呈上几样吃食，随君取用——点开看膳单','openMeal()',false,'');
+}
+function openMeal(){
+  const left=2-(S.mealUsed||0);
+  $('event-body').innerHTML=`<h2>传 膳</h2><div class="story">御膳房呈上几样吃食，随君取用。（每季两次 · 本季剩余 ${left} 次）</div><div class="phew">
+  <button class="opt" onclick="eat('osm')">桂花糕——心情+3</button>
+  <button class="opt" onclick="eat('mij')">蜜饯果子——心情+2</button>
+  <button class="opt" onclick="eat('zhou')">清粥小菜——健康+3</button>
+  <button class="opt" onclick="eat('hun')">一盏馄饨——心情+2 · 健康+1</button>
+  <button class="opt" onclick="eat('ren')">人参羹——健康+4 · 心情-1（药膳苦口）</button>
+  <button class="opt" onclick="eat('choco')">巧克力——？？？（不耗次数）</button>
+  <button class="opt" onclick="closeModal('ov-event')">罢 了</button></div>`;
+  openModal('ov-event');
 }
 function eat(k){
   if(k!=='choco'&&S.mealUsed>=2){toast('本季用膳已足两次');return;}
   if(!takeSnap('巫山殿 · 传膳'))return;
+  closeModal('ov-event');
   let msg='',good=true;
   if(k==='osm'){gainMood(3);S.mealUsed++;msg='桂花糕入口即化。这手艺莫名熟悉——像谁常年蹲在灶边偷学的，又像更久远的什么。抓不住。心情+3。';}
   else if(k==='mij'){gainMood(2);S.mealUsed++;msg='蜜渍的果子甜得齁人。你小时候，好像没吃过糖。心情+2。';}
@@ -675,20 +700,27 @@ function chocoEnd(){
   ending('choco_'+(S.cw.alive&&S.sq.alive?'two':(S.cw.alive?'one':(S.sq.alive?'rite':'none'))));
 }
 function feedBlock(){
+  if(!S.cw.alive)return '';
   if(S.feedUsed===undefined)S.feedUsed=0;
   const left=2-S.feedUsed;
   if(left<=0)return `<div class="desc" style="margin-top:10px">今日投喂已足两次。他放下筷子看了你一眼，什么也没说。</div>`;
-  let h=`<div class="desc" style="margin-top:10px">投 喂（每季两次 · 本季剩余 ${left} 次）——把点心递到他手边：</div><div class="acts">`;
-  h+=actBtn('蜜饯青梅','不耗时','他素来受得了这一口酸甘 · 楚晚宁心情+5 · 健康+2 · 主控心情+1','feed(\'mei\')',false,'');
-  h+=actBtn('清粥小菜','不耗时','清淡养身合他的性子 · 楚晚宁健康+4 · 心情+2 · 主控心情+1','feed(\'zhouf\')',false,'');
-  h+=actBtn('苦瓜馅儿绿豆糕','不耗时','看着他的脸色下饭 · 主控心情+6 · 楚晚宁心情-8 · 健康-4','feed(\'kugua\')',false,'');
-  h+=actBtn('小米辣馅儿红豆糕','不耗时','缺德程度更上一层 · 主控心情+8 · 楚晚宁心情-10 · 健康-6','feed(\'lajiao\')',false,'');
-  return h+'</div>';
+  return actBtn('投 喂（剩余'+left+'次）','不耗时','把点心递到他手边——点开看食单','openFeed()',false,'');
+}
+function openFeed(){
+  const left=2-(S.feedUsed||0);
+  $('event-body').innerHTML=`<h2>投 喂</h2><div class="story">把点心递到他手边。（每季两次 · 本季剩余 ${left} 次）</div><div class="phew">
+  <button class="opt" onclick="feed('mei')">蜜饯青梅——楚晚宁心情+5 · 健康+2 · 你心情+1</button>
+  <button class="opt" onclick="feed('zhouf')">清粥小菜——楚晚宁健康+4 · 心情+2 · 你心情+1</button>
+  <button class="opt" onclick="feed('kugua')">苦瓜馅儿绿豆糕——你心情+6 · 楚晚宁心情-8 · 健康-4</button>
+  <button class="opt" onclick="feed('lajiao')">小米辣馅儿红豆糕——你心情+8 · 楚晚宁心情-10 · 健康-6</button>
+  <button class="opt" onclick="closeModal('ov-event')">罢 了</button></div>`;
+  openModal('ov-event');
 }
 function feed(k){
   if(!S.cw.alive)return;
   if(S.feedUsed>=2){toast('本季投喂已足两次');return;}
   if(!takeSnap('红莲水榭 · 投喂'))return;
+  closeModal('ov-event');
   let msg='',good=true;
   if(k==='mei'){S.cw.mood=clamp(S.cw.mood+5,0,100);S.cw.hp=clamp(S.cw.hp+2,0,100);gainMood(1);S.feedUsed++;msg='他把青梅含进嘴里，眉头都没动——可你看见他耳根，几不可察地红了一下。楚晚宁心情+5、健康+2，心情+1。';}
   else if(k==='zhouf'){S.cw.hp=clamp(S.cw.hp+4,0,100);S.cw.mood=clamp(S.cw.mood+2,0,100);gainMood(1);S.feedUsed++;msg='清粥小菜，热气袅袅。他喝得很慢，像是终于肯承认自己在养病。楚晚宁健康+4、心情+2，心情+1。';}
@@ -837,6 +869,24 @@ function fillPath(n, unit){
     :`押送 ${fmtW(n)} 俘虏填入殉道之路。石道无声吞没了一切。`,'imp');
   if(S.path>=PATH_NEED){ ending(pathEndType()); return; }
   save(); finishAction('后山 · 填入殉道之路');
+}
+function fillPathAll(unit){
+  if(!takeSnap('后山 · 尽数填路'))return;
+  const rem=Math.max(0,PATH_NEED-S.path);
+  const have=Math.min(unit==='troop'?S.troops:S.capt, rem);
+  const n=Math.min(Math.floor(have/1000), S.sp);
+  if(n<1){toast('生灵或体力不足');return;}
+  S.sp-=n; S.hp=clamp(S.hp-2,0,100); // 押送填路，尸山血海，耗神蚀体
+  if(unit==='troop'){S.troops-=n*1000;}else{S.capt-=n*1000;}
+  S.path+=n*1000;
+  if(S.cw.alive)S.cw.mood=clamp(S.cw.mood-4,0,100);
+  S.min=clamp(S.min-1,0,100);
+  S.sects.filter(x=>x.status==='independent').forEach(x=>x.loy=clamp(x.loy-1,0,100));
+  log(unit==='troop'
+    ?`你驱 ${fmtW(n*1000)} 枚珍珑棋子尽数踏上石道——棋子们面无表情，一个接一个，坠入幽蓝。`
+    :`押送 ${fmtW(n*1000)} 俘虏尽数填入殉道之路。石道无声吞没了一切。`,'imp');
+  if(S.path>=PATH_NEED){ ending(pathEndType()); return; }
+  save(); finishAction('后山 · 尽数填路');
 }
 
 /* ---------------- 修真界 ---------------- */
@@ -1029,9 +1079,9 @@ function processMonth(){
         S.cw.hp=clamp(S.cw.hp-12,0,100); S.cw.mood=clamp(S.cw.mood-12,0,100);
         if(S.sqAnger===2){
           evq.push({title:'水 榭 血 痕',text:`内侍跪地颤抖：皇后借探病之名，入了红莲水榭。\n你赶回时，他十指渗血，指甲尽失，甲床里插着尖刺——却仍旧脊背笔直地坐着。见你进来，只淡淡道："陛下日理万机，不必挂怀。"\n你心里某处，裂开了一道缝。`,opts:[
-            {t:'冷眼旁观',f:()=>{ log('你一言不发，转身走了。那夜水榭的灯，亮到天明。','imp'); render(); save(); }},
-            {t:'斥退皇后，禁足偏殿',f:()=>{ S.sq.mood=clamp(S.sq.mood+12,0,100); S.sqAnger=0; S.min=clamp(S.min-1,0,100);
-              log('你当众斥退皇后，禁其足于偏殿。帝后失和的流言传遍市井：民心-1。皇后气焰稍敛（心情+12，怨愤暂息）。','imp'); render(); save(); }}
+            {t:'冷眼旁观',f:()=>{ S.sq.mood=clamp(S.sq.mood+8,0,100); log('你一言不发，转身走了。她如愿以偿，眼底怨毒淡了些（心情+8）。那夜水榭的灯，亮到天明。','imp'); render(); save(); }},
+            {t:'斥退皇后，禁足偏殿',f:()=>{ S.sq.mood=clamp(S.sq.mood-12,0,100); S.sqAnger=0; S.min=clamp(S.min-1,0,100);
+              log('你当众斥退皇后，禁其足于偏殿。帝后失和的流言传遍市井：民心-1。皇后又惧又怨（心情-12，怨愤暂息）。','imp'); render(); save(); }}
           ]});
         }else{
           log('皇后再借探病之名入水榭。他十指的旧伤上，又添了新伤。','imp');
@@ -1175,7 +1225,7 @@ function randomEvent(){
   if(S.cw.alive&&S.cw.hp<50)pool.push({w:2,e:{title:'红 莲 旧 疾',text:'楚晚宁寒疾复发，水榭的灯亮了一整夜。',opts:[
     {t:'遣孤月夜圣手看诊（-3万灵石）',f:()=>{ if(S.coin>=3){S.coin-=3;S.cw.hp=clamp(S.cw.hp+3,0,100); log('丹药入水榭，他的咳声轻了。','good'); render(); save();} }},
     {t:'由他去',f:()=>{S.cw.hp=clamp(S.cw.hp-4,0,100); log('你什么都没做。第二日，他被抬去了内室。','imp'); if(S.cw.hp<=0)chuDeath(); render(); save();}}]}});
-  if(S.sq.alive)pool.push({w:2,e:{title:'皇 后 争 宠',text:'宋皇后妆容精致地来请安，话里带刺，字字不离水榭。',opts:[
+  if(S.sq.alive&&S.cw.alive)pool.push({w:2,e:{title:'皇 后 争 宠',text:'宋皇后妆容精致地来请安，话里带刺，字字不离水榭。',opts:[
     {t:'冷落她',f:()=>{S.sq.mood=clamp(S.sq.mood-8,0,100); log('皇后拂袖而去。她看你的眼神，越来越怨。'); render(); save();}},
     {t:'虚与委蛇',f:()=>{S.sq.mood=clamp(S.sq.mood+5,0,100); gainMood(-2); log('你敷衍了她。她高兴了，你却更烦了。'); render(); save();}}]}});
   pool.push({w:2,e:{title:'边 陲 妖 兽',text:'下修界结界被鬼物撕开一道口子，妖兽袭村，百姓跪求天兵。',opts:[
